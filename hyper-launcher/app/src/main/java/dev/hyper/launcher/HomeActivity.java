@@ -49,7 +49,7 @@ import java.util.Set;
 public final class HomeActivity extends Activity {
 
     private static final String SETTINGS_PKG = "com.android.tv.settings";
-    private static final String QUICK_PKG = "com.tcl.suspension";
+
 
     private GridView grid;
     private TextView hint;
@@ -101,10 +101,6 @@ public final class HomeActivity extends Activity {
 
         ImageView gear = findViewById(R.id.settingsBtn);
         gear.setOnClickListener(v -> {
-            for (AppEntry a : orderedApps)
-                if (a.pkg.equals(QUICK_PKG)) { launch(a); return; }
-            for (AppEntry a : orderedApps)
-                if (a.pkg.equals(SETTINGS_PKG)) { launch(a); return; }
             try { startActivity(new Intent(Settings.ACTION_SETTINGS)); }
             catch (Exception ignored) {}
         });

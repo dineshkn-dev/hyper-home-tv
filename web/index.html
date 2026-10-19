@@ -261,7 +261,7 @@
     <div class="statefull" id="nosignal">
       <canvas id="noise"></canvas>
       <div class="big">NO SIGNAL</div>
-      <div class="sub">ADB LINK DOWN · <tv-ip>:5555</div>
+      <div class="sub">ADB LINK DOWN</div>
     </div>
     <div class="statefull" id="standby">
       <div class="clock" id="sbclock">--:--</div>
@@ -433,7 +433,7 @@ function paintState() {
   $("led").className = "led " + (!on ? "off" : asleep ? "stdby" : "on");
   const c = $("conn");
   c.className = "conn" + (on ? " on" : "");
-  c.querySelector("span").textContent = on ? "LIVE · <tv-ip>" : "NO LINK";
+  c.querySelector("span").textContent = on ? `LIVE · ${state.device_addr || "device"}` : "NO LINK";
   const f = state.live && state.live.focus;
   $("nowapp").innerHTML = on && f ? `now on screen <b>${esc(f)}</b>` : (on ? "screen idle" : "—");
 }

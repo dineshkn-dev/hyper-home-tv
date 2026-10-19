@@ -4,12 +4,15 @@ import json
 import os
 import re
 import subprocess
+import sys
 import threading
 import time
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 
 ADB = "adb"
-DEVICE = "<tv-ip>:5555"
+# Target TV: pass as argv[1] or set TV_ADDR, e.g. TV_ADDR=192.168.1.50:5555
+DEVICE = (sys.argv[1] if len(sys.argv) > 1
+          else os.environ.get("TV_ADDR", "127.0.0.1:5555"))
 PORT = 8787
 ROOT = os.path.dirname(os.path.abspath(__file__))
 
@@ -126,7 +129,7 @@ INFO = {
 ORDER = {"remove": 0, "optional": 1, "user": 2, "critical": 3, "core": 4}
 
 _state = {"packages": [], "device": {}, "settings": {}, "live": {},
-          "connected": False, "updated": 0}
+          "connected": False, "updated": 0, "device_addr": DEVICE}
 _lock = threading.Lock()
 _versions = {}
 

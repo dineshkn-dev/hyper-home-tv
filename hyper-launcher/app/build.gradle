@@ -2,6 +2,14 @@ plugins {
     id 'com.android.application'
 }
 
+// Optional release signing: drop keystore.properties next to settings.gradle
+// (storeFile=…, storePassword=…, keyAlias=…, keyPassword=…)
+def ksp = new Properties()
+def kspFile = rootProject.file("keystore.properties")
+if (kspFile.exists()) {
+    kspFile.withInputStream { ksp.load(it) }
+}
+
 android {
     namespace 'dev.hyper.launcher'
     compileSdk 34
@@ -14,9 +22,23 @@ android {
         versionName "1.0"
     }
 
+    signingConfigs {
+        if (kspFile.exists()) {
+            release {
+                storeFile rootProject.file(ksp['storeFile'])
+                storePassword ksp['storePassword']
+                keyAlias ksp['keyAlias']
+                keyPassword ksp['keyPassword']
+            }
+        }
+    }
+
     buildTypes {
         release {
             minifyEnabled false
+            if (kspFile.exists()) {
+                signingConfig signingConfigs.release
+            }
         }
     }
 

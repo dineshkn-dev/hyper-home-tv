@@ -21,3 +21,6 @@ local.properties
 # Python (web dashboard)
 __pycache__/
 *.py[cod]
+.commandcode/
+keystore.properties
+*.keystore

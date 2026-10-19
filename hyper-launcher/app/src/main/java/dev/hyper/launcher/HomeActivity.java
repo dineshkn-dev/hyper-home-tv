@@ -225,6 +225,8 @@ public final class HomeActivity extends Activity {
         cm.registerDefaultNetworkCallback(netCb);
         updateWifi();
         loadApps();
+        ((BuddyView) findViewById(R.id.buddy))
+                .setGround(findViewById(R.id.ground));
         restoreWeather();          // paint last known weather instantly
         handler.post(weatherTick);
     }

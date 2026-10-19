@@ -42,10 +42,17 @@ public final class BuddyView extends View {
     private float lookX, lookY, tLookX, tLookY;
     private float squash;
     private float hopY;
+    private float facing = -1f;   // 1 = right, -1 = left
 
     // walking: tx = target translationX (px), curX = current
     private float tx, curX, walkPhase;
     private float lean;
+
+    // jumping over obstacles
+    private GroundView ground;
+    private float airY, vy;   // height above ground + vertical speed (px)
+
+    public void setGround(GroundView g) { ground = g; }
 
     public BuddyView(Context c) { super(c); init(); }
     public BuddyView(Context c, AttributeSet a) { super(c, a); init(); }
@@ -76,10 +83,13 @@ public final class BuddyView extends View {
             }
             if (blinkAt >= 0 && now - blinkAt > 150) blinkAt = -1;
 
-            // stroll along the edge
+            // stroll along the edge — wrap around the screen ends
             float d = getResources().getDisplayMetrics().density;
-            float minX = -getRootView().getWidth() + getWidth() - 20 * d;
-            tx = Math.min(0, Math.max(minX, tx));
+            float parentW = getRootView().getWidth();
+            float leftEdge = -getLeft() - getWidth();      // fully off left
+            float rightEdge = parentW - getLeft();         // fully off right
+            tx = Math.min(rightEdge + getWidth(),
+                    Math.max(leftEdge - getWidth(), tx));
             float diff = tx - curX;
             if (Math.abs(diff) > 1.5f) {
                 curX += diff * 0.12f;
@@ -90,7 +100,34 @@ public final class BuddyView extends View {
                 lean *= 0.8f;
                 walkPhase *= 0.8f;
             }
+            // off one edge → pop in from the other side
+            if (curX < leftEdge + 4 * d) curX = tx = rightEdge;
+            else if (curX > rightEdge - 4 * d) curX = tx = leftEdge;
             setTranslationX(curX);
+
+            // auto-jump: a rock dead ahead while moving (grass is soft)
+            if (ground != null && Math.abs(diff) > 2f && airY <= 0) {
+                float catX = getLeft() + curX + getWidth() / 2f;
+                float dir = Math.signum(diff);
+                float[] obs = ground.obstacles();
+                int[] types = ground.types();
+                for (int i = 0; i < obs.length; i++) {
+                    if (types[i] != 0) continue;      // rocks only
+                    float gap = (obs[i] - catX) * dir;   // ahead only
+                    if (gap > 0 && gap < 52 * d) {
+                        vy = 13.5f * d;
+                        airY = 0.1f;
+                        break;
+                    }
+                }
+            }
+            if (airY > 0 || vy != 0) {
+                airY += vy;
+                vy -= 2.7f * d;                    // gravity
+                if (airY <= 0) {                   // landed — little squash
+                    airY = 0; vy = 0; squash = -0.5f;
+                }
+            }
 
             // idle wander: take a little stroll now and then
             if (!sleeping && now >= nextWander) {
@@ -103,9 +140,13 @@ public final class BuddyView extends View {
         }
     };
 
-    /** take a few steps along the bottom edge; dir = -1 left, +1 right */
+    /** take a few steps along the bottom edge; dir = -1 left, +1 right.
+     *  The world scrolls underneath like the cat is running on a road. */
     public void walk(int dir) {
-        tx += dir * STEP_DP * getResources().getDisplayMetrics().density;
+        float d = getResources().getDisplayMetrics().density;
+        tx += dir * STEP_DP * 0.5f * d;
+        if (ground != null) ground.scroll(-dir * STEP_DP * 0.4f * d);
+        facing = dir;
         tLookX = dir * 0.8f;
         wake();
     }
@@ -141,6 +182,7 @@ public final class BuddyView extends View {
         float cy = bodyTop + R * sy;
 
         c.save();
+        c.translate(0, -airY);              // airborne lift (whole body)
         c.rotate(lean * 57.3f, cx, base);   // lean into the walk
 
         // little feet — alternate steps while walking
@@ -165,9 +207,9 @@ public final class BuddyView extends View {
         c.save();
         c.translate(0, -bob + hopY * 16 * d);
         android.graphics.Path tail = new android.graphics.Path();
-        tail.moveTo(cx + R * 0.7f, base - 8 * d);
-        tail.quadTo(cx + R * 1.5f, base - 12 * d,
-                cx + R * 1.6f, base - 26 * d + sway);
+        tail.moveTo(cx - facing * R * 0.7f, base - 8 * d);
+        tail.quadTo(cx - facing * R * 1.5f, base - 12 * d,
+                cx - facing * R * 1.6f, base - 26 * d + sway);
         c.drawPath(tail, mouth);
         c.restore();
         mouth.setColor(0xFF141A28);
@@ -217,14 +259,7 @@ public final class BuddyView extends View {
                     ey + 5 * d), 15, 150, false, mouth);
             c.drawArc(new RectF(cx + ex - 5 * d, ey, cx + ex + 5 * d,
                     ey + 5 * d), 15, 150, false, mouth);
-            float zt = (t % 2.4f) / 2.4f;
-            pupil.setTextSize(11 * d);
-            pupil.setColor(0xFF9BB4FF);            // readable on the dark bg
-            pupil.setAlpha((int) (190 * (1 - zt)));
-            c.drawText("z", cx + R * 0.5f + zt * 8 * d,
-                    cy - R * 0.6f - zt * 10 * d, pupil);
-            pupil.setColor(0xFF141A28);
-            pupil.setAlpha(255);
+
         } else {
             float blink = blinkAt >= 0
                     ? Math.abs((SystemClock.uptimeMillis() - blinkAt)
@@ -275,6 +310,18 @@ public final class BuddyView extends View {
                     cx + mw * 2, cy + R * 0.36f), 10, 160, false, mouth);
         }
         c.restore();
+
+        // sleepy "z" floats off the head — drawn unmirrored
+        if (sleeping) {
+            float zt = (t % 2.4f) / 2.4f;
+            pupil.setTextSize(11 * d);
+            pupil.setColor(0xFF9BB4FF);
+            pupil.setAlpha((int) (190 * (1 - zt)));
+            c.drawText("z", cx + facing * R * 0.5f + zt * 8 * d,
+                    cy - R * 0.6f - zt * 10 * d - airY, pupil);
+            pupil.setColor(0xFF141A28);
+            pupil.setAlpha(255);
+        }
     }
 
     @Override protected void onDetachedFromWindow() {

@@ -1,0 +1,23 @@
+# Android build outputs
+**/build/
+*.apk
+*.aab
+*.ap_
+*.dex
+
+# Gradle
+.gradle/
+!**/gradle/wrapper/gradle-wrapper.jar
+
+# Local config & IDE
+local.properties
+.idea/
+*.iml
+.cxx/
+
+# OS cruft
+.DS_Store
+
+# Python (web dashboard)
+__pycache__/
+*.py[cod]

@@ -157,11 +157,58 @@ public final class BuddyView extends View {
                 cx + spread + fw / 2, base - Math.max(0, -step)),
                 fh / 2, fh / 2, foot);
 
+        // tail — sways behind the body, faster while walking
+        float sway = (float) Math.sin(t * Math.PI * (walking ? 4f : 1.4f)
+                + (walking ? walkPhase : 0)) * (walking ? 9 : 5) * d;
+        mouth.setStrokeWidth(5 * d);
+        mouth.setColor(0xFF8A7CFF);
+        c.save();
+        c.translate(0, -bob + hopY * 16 * d);
+        android.graphics.Path tail = new android.graphics.Path();
+        tail.moveTo(cx + R * 0.7f, base - 8 * d);
+        tail.quadTo(cx + R * 1.5f, base - 12 * d,
+                cx + R * 1.6f, base - 26 * d + sway);
+        c.drawPath(tail, mouth);
+        c.restore();
+        mouth.setColor(0xFF141A28);
+
         // body — soft squircle blob, cool gradient
         body.setShader(new LinearGradient(cx - R, cy - R, cx + R, cy + R,
                 0xFF4FC4F7, 0xFF8A7CFF, Shader.TileMode.CLAMP));
         c.drawRoundRect(new RectF(cx - R * sx, cy - R * sy,
                 cx + R * sx, cy + R * sy), R * 0.55f, R * 0.55f, body);
+
+        // ears — little triangles on top
+        body.setShader(null);
+        body.setColor(0xFF6A8CF7);
+        float earH = 9 * d;
+        float earY = cy - R * sy;
+        android.graphics.Path ear = new android.graphics.Path();
+        ear.moveTo(cx - R * 0.52f, earY + 3 * d);
+        ear.lineTo(cx - R * 0.30f, earY - earH);
+        ear.lineTo(cx - R * 0.06f, earY + 1 * d);
+        ear.close();
+        c.drawPath(ear, body);
+        ear.reset();
+        ear.moveTo(cx + R * 0.52f, earY + 3 * d);
+        ear.lineTo(cx + R * 0.30f, earY - earH);
+        ear.lineTo(cx + R * 0.06f, earY + 1 * d);
+        ear.close();
+        c.drawPath(ear, body);
+        pupil.setColor(0x80FFFFFF);
+        android.graphics.Path inner = new android.graphics.Path();
+        inner.moveTo(cx - R * 0.44f, earY + 1 * d);
+        inner.lineTo(cx - R * 0.32f, earY - earH * 0.55f);
+        inner.lineTo(cx - R * 0.18f, earY + 1 * d);
+        inner.close();
+        c.drawPath(inner, pupil);
+        inner.reset();
+        inner.moveTo(cx + R * 0.44f, earY + 1 * d);
+        inner.lineTo(cx + R * 0.32f, earY - earH * 0.55f);
+        inner.lineTo(cx + R * 0.18f, earY + 1 * d);
+        inner.close();
+        c.drawPath(inner, pupil);
+        pupil.setColor(0xFF141A28);
 
         if (sleeping) {
             float ey = cy - R * 0.18f, ex = R * 0.30f;
@@ -183,22 +230,49 @@ public final class BuddyView extends View {
                     ? Math.abs((SystemClock.uptimeMillis() - blinkAt)
                             / 150f - 0.5f) * 2f : 1f;
             blink = 0.12f + 0.88f * Math.min(1f, blink * 1.6f);
-            float ex = R * 0.32f, ey = cy - R * 0.22f, er = 6.4f * d;
-            float ox = lookX * 3.4f * d, oy = lookY * 3f * d;
+            float ex = R * 0.32f, ey = cy - R * 0.24f, er = 6.8f * d;
+            float ox = lookX * 3.6f * d, oy = lookY * 3f * d;
             for (int sgn = -1; sgn <= 1; sgn += 2) {
                 float ec = cx + sgn * ex;
                 c.save();
                 c.scale(1f, blink, ec, ey);
                 c.drawCircle(ec, ey, er, eyeW);
-                c.drawCircle(ec + ox, ey + oy, er * 0.48f, pupil);
+                // cat slit pupil — a vertical ellipse
+                c.drawOval(new RectF(ec + ox - er * 0.22f,
+                        ey + oy - er * 0.62f,
+                        ec + ox + er * 0.22f,
+                        ey + oy + er * 0.62f), pupil);
                 c.restore();
             }
-            c.drawCircle(cx - R * 0.55f, cy + R * 0.05f, 4.6f * d, cheek);
-            c.drawCircle(cx + R * 0.55f, cy + R * 0.05f, 4.6f * d, cheek);
-            mouth.setStrokeWidth(2.6f * d);
-            float mw = 8 * d + Math.abs(squash) * 6 * d;
-            c.drawArc(new RectF(cx - mw, cy + R * 0.05f,
-                    cx + mw, cy + R * 0.32f), 20, 140, false, mouth);
+            // whiskers
+            mouth.setStrokeWidth(1.6f * d);
+            mouth.setColor(0x70FFFFFF);
+            float wy = cy + R * 0.02f;
+            for (int sgn = -1; sgn <= 1; sgn += 2)
+                for (int k = 0; k < 3; k++) {
+                    float wy2 = wy + (k - 1) * 3.4f * d;
+                    c.drawLine(cx + sgn * R * 0.5f, wy2,
+                            cx + sgn * (R * 0.95f + k * 2 * d),
+                            wy2 + (k - 1) * 2.6f * d, mouth);
+                }
+            mouth.setColor(0xFF141A28);
+            // nose + little cat "w" mouth
+            cheek.setColor(0xFFFF8FB3);
+            android.graphics.Path nose = new android.graphics.Path();
+            nose.moveTo(cx - 2.6f * d, cy + R * 0.02f);
+            nose.lineTo(cx + 2.6f * d, cy + R * 0.02f);
+            nose.lineTo(cx, cy + R * 0.12f);
+            nose.close();
+            c.drawPath(nose, cheek);
+            cheek.setColor(0x40FF9EC7);
+            c.drawCircle(cx - R * 0.55f, cy + R * 0.08f, 4.6f * d, cheek);
+            c.drawCircle(cx + R * 0.55f, cy + R * 0.08f, 4.6f * d, cheek);
+            mouth.setStrokeWidth(2.4f * d);
+            float mw = 5 * d + Math.abs(squash) * 4 * d;
+            c.drawArc(new RectF(cx - mw * 2, cy + R * 0.10f,
+                    cx, cy + R * 0.36f), 10, 160, false, mouth);
+            c.drawArc(new RectF(cx, cy + R * 0.10f,
+                    cx + mw * 2, cy + R * 0.36f), 10, 160, false, mouth);
         }
         c.restore();
     }

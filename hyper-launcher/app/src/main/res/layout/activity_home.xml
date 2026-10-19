@@ -1,69 +1,87 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
     android:clipChildren="false"
-    android:clipToPadding="false"
-    android:paddingStart="64dp"
-    android:paddingEnd="64dp"
-    android:paddingTop="36dp"
-    android:paddingBottom="32dp">
+    android:clipToPadding="false">
 
-    <!-- minimal top bar -->
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical"
-        android:layout_marginBottom="36dp">
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="hyper"
-            android:textColor="@color/accent"
-            android:textSize="20sp"
-            android:textStyle="bold"
-            android:letterSpacing="0.18" />
-
-        <View
-            android:layout_width="0dp"
-            android:layout_height="1dp"
-            android:layout_weight="1" />
-
-        <TextView
-            android:id="@+id/date"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:textColor="@color/text_dim"
-            android:textSize="14sp"
-            android:layout_marginEnd="18dp" />
-
-        <TextClock
-            android:id="@+id/clock"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:format12Hour="h:mm"
-            android:format24Hour="H:mm"
-            android:textColor="@color/text"
-            android:textSize="20sp" />
-    </LinearLayout>
-
-    <!-- app grid -->
-    <GridView
-        android:id="@+id/grid"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:numColumns="6"
-        android:horizontalSpacing="18dp"
-        android:verticalSpacing="18dp"
-        android:layout_marginTop="28dp"
-        android:stretchMode="columnWidth"
-        android:scrollbars="none"
-        android:overScrollMode="never"
-        android:clipToPadding="false"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
         android:clipChildren="false"
-        android:listSelector="@android:color/transparent" />
-</LinearLayout>
+        android:clipToPadding="false"
+        android:paddingStart="64dp"
+        android:paddingEnd="64dp"
+        android:paddingTop="36dp"
+        android:paddingBottom="32dp">
+
+        <!-- minimal top bar -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="36dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="hyper"
+                android:textColor="@color/accent"
+                android:textSize="20sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.18" />
+
+            <View
+                android:layout_width="0dp"
+                android:layout_height="1dp"
+                android:layout_weight="1" />
+
+            <TextView
+                android:id="@+id/date"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="@color/text_dim"
+                android:textSize="14sp"
+                android:layout_marginEnd="18dp" />
+
+            <TextClock
+                android:id="@+id/clock"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:format12Hour="h:mm"
+                android:format24Hour="H:mm"
+                android:textColor="@color/text"
+                android:textSize="20sp" />
+        </LinearLayout>
+
+        <!-- app grid -->
+        <GridView
+            android:id="@+id/grid"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:numColumns="6"
+            android:horizontalSpacing="18dp"
+            android:verticalSpacing="18dp"
+            android:layout_marginTop="28dp"
+            android:stretchMode="columnWidth"
+            android:scrollbars="none"
+            android:overScrollMode="never"
+            android:clipToPadding="false"
+            android:clipChildren="false"
+            android:listSelector="@android:color/transparent" />
+
+        <!-- move-mode hint bar -->
+        <TextView
+            android:id="@+id/hint"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:textColor="@color/text_dim"
+            android:textSize="13sp"
+            android:alpha="0"
+            android:layout_marginTop="14dp" />
+    </LinearLayout>
+</FrameLayout>

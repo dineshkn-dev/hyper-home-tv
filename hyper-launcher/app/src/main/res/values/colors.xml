@@ -2,9 +2,5 @@
 <resources>
     <color name="bg_top">#0B0D14</color>
     <color name="bg_bottom">#05060B</color>
-    <color name="tile_bg">#161C2B</color>
-    <color name="focus_ring">#F4F7FF</color>
-    <color name="text">#E8EDF8</color>
     <color name="text_dim">#69748F</color>
-    <color name="accent">#5B9DFF</color>
 </resources>

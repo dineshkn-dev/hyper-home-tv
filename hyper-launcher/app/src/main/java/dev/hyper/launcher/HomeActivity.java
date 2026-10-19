@@ -58,6 +58,7 @@ public final class HomeActivity extends Activity {
     private List<AppEntry> allApps = new ArrayList<>();
     private final Set<String> hiddenPkgs = new HashSet<>();
     private View lastSelectedTile;
+    private View barFocus;   // top-bar element that last held focus
     private Dialog menuDlg;
     private boolean menuOpen, moving;
     private String lastPkg;
@@ -116,8 +117,11 @@ public final class HomeActivity extends Activity {
                     .setDuration(160).start();
             ((ImageView) v).setColorFilter(has ? 0xFFE8EDF8 : 0xFF8A94AA);
             // drop the tile's focused look while the gear holds focus
-            if (has && lastSelectedTile instanceof AppTile)
-                ((AppTile) lastSelectedTile).setFocusedState(false);
+            if (has) {
+                barFocus = v;
+                if (lastSelectedTile instanceof AppTile)
+                    ((AppTile) lastSelectedTile).setFocusedState(false);
+            }
         });
 
         View date = findViewById(R.id.date);
@@ -128,8 +132,11 @@ public final class HomeActivity extends Activity {
             db.setCornerRadius(12 * getResources().getDisplayMetrics().density);
             v.setBackground(db);
             ((TextView) v).setTextColor(has ? 0xFFE8EDF8 : 0xFF8A94AA);
-            if (has && lastSelectedTile instanceof AppTile)
-                ((AppTile) lastSelectedTile).setFocusedState(false);
+            if (has) {
+                barFocus = v;
+                if (lastSelectedTile instanceof AppTile)
+                    ((AppTile) lastSelectedTile).setFocusedState(false);
+            }
         });
 
         View weather = findViewById(R.id.weather);
@@ -140,8 +147,11 @@ public final class HomeActivity extends Activity {
             tb.setCornerRadius(12 * getResources().getDisplayMetrics().density);
             v.setBackground(tb);
             ((TextView) v).setTextColor(has ? 0xFFE8EDF8 : 0xFF8A94AA);
-            if (has && lastSelectedTile instanceof AppTile)
-                ((AppTile) lastSelectedTile).setFocusedState(false);
+            if (has) {
+                barFocus = v;
+                if (lastSelectedTile instanceof AppTile)
+                    ((AppTile) lastSelectedTile).setFocusedState(false);
+            }
         });
 
         View wifi = findViewById(R.id.wifiGroup);
@@ -151,12 +161,16 @@ public final class HomeActivity extends Activity {
             wb.setColor(has ? 0x2EFFFFFF : 0x00000000);
             wb.setCornerRadius(12 * getResources().getDisplayMetrics().density);
             v.setBackground(wb);
-            if (has && lastSelectedTile instanceof AppTile)
-                ((AppTile) lastSelectedTile).setFocusedState(false);
+            if (has) {
+                barFocus = v;
+                if (lastSelectedTile instanceof AppTile)
+                    ((AppTile) lastSelectedTile).setFocusedState(false);
+            }
         });
         // re-paint focus when it comes back to the grid
         grid.setOnFocusChangeListener((v, has) -> {
             if (has) {
+                barFocus = null;
                 View sel = grid.getSelectedView();
                 if (sel instanceof AppTile) {
                     ((AppTile) sel).setFocusedState(true);
@@ -501,7 +515,7 @@ public final class HomeActivity extends Activity {
         dlg.setOnDismissListener(dd -> {
             menuOpen = false;
             menuDlg = null;
-            grid.requestFocus();
+            focusBack();
         });
         menuOpen = true;
         menuDlg = dlg;
@@ -791,7 +805,13 @@ public final class HomeActivity extends Activity {
         if (menuDlg != null) menuDlg.dismiss();
         menuOpen = false;
         menuDlg = null;
-        grid.requestFocus();
+        focusBack();
+    }
+
+    /** return focus to the bar icon if one was used, else the grid */
+    private void focusBack() {
+        if (barFocus != null && barFocus.isShown()) barFocus.requestFocus();
+        else { barFocus = null; grid.requestFocus(); }
     }
 
     /** centered overlay listing hidden apps — OK on one restores it */
@@ -1015,11 +1035,15 @@ public final class HomeActivity extends Activity {
         final int fsel = sel;
         grid.postDelayed(() -> {
             grid.setSelection(fsel);
-            grid.requestFocus();
-            View v = grid.getSelectedView();
-            if (v instanceof AppTile) {
-                ((AppTile) v).setFocusedState(true);
-                lastSelectedTile = v;
+            if (barFocus != null && barFocus.isShown()) {
+                barFocus.requestFocus();   // keep bar icons focused on return
+            } else {
+                grid.requestFocus();
+                View v = grid.getSelectedView();
+                if (v instanceof AppTile) {
+                    ((AppTile) v).setFocusedState(true);
+                    lastSelectedTile = v;
+                }
             }
         }, 80);
     }

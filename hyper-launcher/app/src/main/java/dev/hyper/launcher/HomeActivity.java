@@ -49,6 +49,7 @@ import java.util.Set;
 public final class HomeActivity extends Activity {
 
     private static final String SETTINGS_PKG = "com.android.tv.settings";
+    private static final String QUICK_PKG = "com.tcl.suspension";
 
     private GridView grid;
     private TextView hint;
@@ -61,6 +62,10 @@ public final class HomeActivity extends Activity {
     private boolean menuOpen, moving;
     private String lastPkg;
     private ConnectivityManager cm;
+    // last weather fetch for the details dropdown
+    private String wCity = "", wCond = "";
+    private double wTemp, wFeels, wHi, wLo;
+    private int wHum, wWind, wCode = -1, wAqi = -1, wPm25 = -1;
     private final android.os.Handler handler =
             new android.os.Handler(android.os.Looper.getMainLooper());
     private final Runnable weatherTick = new Runnable() {
@@ -96,6 +101,8 @@ public final class HomeActivity extends Activity {
         ImageView gear = findViewById(R.id.settingsBtn);
         gear.setOnClickListener(v -> {
             for (AppEntry a : orderedApps)
+                if (a.pkg.equals(QUICK_PKG)) { launch(a); return; }
+            for (AppEntry a : orderedApps)
                 if (a.pkg.equals(SETTINGS_PKG)) { launch(a); return; }
             try { startActivity(new Intent(Settings.ACTION_SETTINGS)); }
             catch (Exception ignored) {}
@@ -120,6 +127,18 @@ public final class HomeActivity extends Activity {
             db.setColor(has ? 0x2EFFFFFF : 0x00000000);
             db.setCornerRadius(12 * getResources().getDisplayMetrics().density);
             v.setBackground(db);
+            ((TextView) v).setTextColor(has ? 0xFFE8EDF8 : 0xFF8A94AA);
+            if (has && lastSelectedTile instanceof AppTile)
+                ((AppTile) lastSelectedTile).setFocusedState(false);
+        });
+
+        View weather = findViewById(R.id.weather);
+        weather.setOnClickListener(v -> showWeatherDialog());
+        weather.setOnFocusChangeListener((v, has) -> {
+            GradientDrawable tb = new GradientDrawable();
+            tb.setColor(has ? 0x2EFFFFFF : 0x00000000);
+            tb.setCornerRadius(12 * getResources().getDisplayMetrics().density);
+            v.setBackground(tb);
             ((TextView) v).setTextColor(has ? 0xFFE8EDF8 : 0xFF8A94AA);
             if (has && lastSelectedTile instanceof AppTile)
                 ((AppTile) lastSelectedTile).setFocusedState(false);
@@ -192,6 +211,7 @@ public final class HomeActivity extends Activity {
         cm.registerDefaultNetworkCallback(netCb);
         updateWifi();
         loadApps();
+        restoreWeather();          // paint last known weather instantly
         handler.post(weatherTick);
     }
 
@@ -259,34 +279,87 @@ public final class HomeActivity extends Activity {
                     if (loc != null) { lat = loc.getLatitude(); lon = loc.getLongitude(); }
                 } catch (SecurityException ignored) {}
 
+                String city = "";
                 if (Double.isNaN(lat)) {
                     org.json.JSONObject geo = getJson(
-                            "https://ipwho.is/?fields=success,latitude,longitude");
+                            "https://ipwho.is/?fields=success,latitude,longitude,city");
                     if (!geo.optBoolean("success"))
                         throw new Exception("geo failed");
                     lat = geo.getDouble("latitude");
                     lon = geo.getDouble("longitude");
+                    city = geo.optString("city", "");
                 }
 
                 org.json.JSONObject w = getJson(
                         "https://api.open-meteo.com/v1/forecast?latitude=" + lat
                         + "&longitude=" + lon
-                        + "&current=temperature_2m,weather_code&timezone=auto");
+                        + "&current=temperature_2m,relative_humidity_2m,"
+                        + "apparent_temperature,weather_code,wind_speed_10m"
+                        + "&daily=temperature_2m_max,temperature_2m_min"
+                        + "&timezone=auto");
                 org.json.JSONObject cur = w.getJSONObject("current");
-                double t = cur.getDouble("temperature_2m");
-                int code = cur.getInt("weather_code");
-                final String label = weatherIcon(code) + " "
-                        + Math.round(t) + "°";
-                runOnUiThread(() -> {
-                    TextView v = findViewById(R.id.weather);
-                    v.setText(label);
-                    v.setVisibility(View.VISIBLE);
-                });
+                wTemp = cur.getDouble("temperature_2m");
+                wFeels = cur.getDouble("apparent_temperature");
+                wHum = cur.getInt("relative_humidity_2m");
+                wWind = (int) cur.getDouble("wind_speed_10m");
+                wCode = cur.getInt("weather_code");
+                wCond = weatherText(wCode);
+                wCity = city;
+                org.json.JSONObject daily = w.getJSONObject("daily");
+                wHi = daily.getJSONArray("temperature_2m_max").getDouble(0);
+                wLo = daily.getJSONArray("temperature_2m_min").getDouble(0);
+
+                try {   // AQI is best-effort; don't fail the whole fetch
+                    org.json.JSONObject aq = getJson(
+                            "https://air-quality-api.open-meteo.com/v1/"
+                            + "air-quality?latitude=" + lat + "&longitude="
+                            + lon + "&current=us_aqi,pm2_5&timezone=auto");
+                    org.json.JSONObject ac = aq.getJSONObject("current");
+                    wAqi = ac.getInt("us_aqi");
+                    wPm25 = (int) ac.getDouble("pm2_5");
+                } catch (Exception ignored) {}
+
+                saveWeather();
+                runOnUiThread(this::renderWeather);
             } catch (Exception e) {
                 runOnUiThread(() ->
                         findViewById(R.id.weather).setVisibility(View.GONE));
             }
         }, "weather").start();
+    }
+
+    /** paint the bar chip from cached/fetched fields */
+    private void renderWeather() {
+        TextView v = findViewById(R.id.weather);
+        if (wCode < 0) { v.setVisibility(View.GONE); return; }
+        v.setText(weatherIcon(wCode) + " " + Math.round(wTemp) + "°"
+                + (wAqi >= 0 ? "  ·  AQI " + wAqi : ""));
+        v.setVisibility(View.VISIBLE);
+    }
+
+    private void saveWeather() {
+        try {
+            org.json.JSONObject j = new org.json.JSONObject();
+            j.put("t", wTemp); j.put("f", wFeels); j.put("h", wHum);
+            j.put("w", wWind); j.put("c", wCode); j.put("a", wAqi);
+            j.put("p", wPm25); j.put("hi", wHi); j.put("lo", wLo);
+            j.put("city", wCity); j.put("cond", wCond);
+            prefs().edit().putString("wx", j.toString()).apply();
+        } catch (Exception ignored) {}
+    }
+
+    private void restoreWeather() {
+        try {
+            org.json.JSONObject j =
+                    new org.json.JSONObject(prefs().getString("wx", ""));
+            wTemp = j.getDouble("t"); wFeels = j.getDouble("f");
+            wHum = j.getInt("h"); wWind = j.getInt("w");
+            wCode = j.getInt("c"); wAqi = j.getInt("a");
+            wPm25 = j.getInt("p"); wHi = j.getDouble("hi");
+            wLo = j.getDouble("lo");
+            wCity = j.optString("city", ""); wCond = j.optString("cond", "");
+            renderWeather();
+        } catch (Exception ignored) {}
     }
 
     private static org.json.JSONObject getJson(String url) throws Exception {
@@ -313,6 +386,73 @@ public final class HomeActivity extends Activity {
         if (c <= 82) return "🌧";
         if (c <= 86) return "🌨";
         return "⛈";
+    }
+
+    private static String weatherText(int c) {
+        if (c == 0) return "Clear";
+        if (c <= 2) return "Partly cloudy";
+        if (c == 3) return "Overcast";
+        if (c <= 48) return "Foggy";
+        if (c <= 57) return "Drizzle";
+        if (c <= 67) return "Rain";
+        if (c <= 77) return "Snow";
+        if (c <= 82) return "Showers";
+        if (c <= 86) return "Snow showers";
+        return "Thunderstorm";
+    }
+
+    private static String aqiText(int aqi) {
+        if (aqi <= 50) return "Good";
+        if (aqi <= 100) return "Moderate";
+        if (aqi <= 150) return "Unhealthy for sensitive";
+        if (aqi <= 200) return "Unhealthy";
+        if (aqi <= 300) return "Very unhealthy";
+        return "Hazardous";
+    }
+
+    private void showWeatherDialog() {
+        if (wCode < 0) return;   // nothing fetched yet
+        closeMenu();
+        float d = getResources().getDisplayMetrics().density;
+        LinearLayout panel = new LinearLayout(this);
+        panel.setOrientation(LinearLayout.VERTICAL);
+
+        TextView title = new TextView(this);
+        title.setText(weatherIcon(wCode) + "  " + Math.round(wTemp)
+                + "°  " + wCond);
+        title.setTextSize(17f);
+        title.setTextColor(0xFFE8EDF8);
+        title.setPadding((int) (14 * d), (int) (8 * d), (int) (14 * d),
+                (int) (2 * d));
+        panel.addView(title);
+
+        if (!wCity.isEmpty() || wHi != 0) {
+            TextView sub = new TextView(this);
+            String s = "";
+            if (!wCity.isEmpty()) s += wCity;
+            if (wHi != 0)
+                s += (s.isEmpty() ? "" : "  ·  ") + "H "
+                        + Math.round(wHi) + "°  L " + Math.round(wLo) + "°";
+            sub.setText(s);
+            sub.setTextSize(12.5f);
+            sub.setTextColor(0xFF8A94AA);
+            sub.setPadding((int) (14 * d), 0, (int) (14 * d), (int) (6 * d));
+            panel.addView(sub);
+        }
+
+        detailRow(panel, d, "Feels like", Math.round(wFeels) + "°");
+        detailRow(panel, d, "Humidity", wHum + "%");
+        detailRow(panel, d, "Wind", wWind + " km/h");
+        if (wAqi >= 0)
+            detailRow(panel, d, "Air quality", wAqi + " · " + aqiText(wAqi));
+        if (wPm25 >= 0)
+            detailRow(panel, d, "PM2.5", wPm25 + " µg/m³");
+
+        View anchor = findViewById(R.id.weather);
+        int[] loc = new int[2];
+        anchor.getLocationOnScreen(loc);
+        buildDialog(panel, 230, loc[0] - (int) (20 * d),
+                loc[1] + anchor.getHeight() + (int) (4 * d), 0.5f, 0f);
     }
 
     @Override public void onBackPressed() {

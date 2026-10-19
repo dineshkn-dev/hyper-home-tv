@@ -206,8 +206,10 @@ public final class HomeActivity extends Activity {
             addMenuItem(menu, d, R.drawable.ic_delete, "Uninstall", () -> {
                 closeMenu();
                 try {
-                    startActivity(new Intent(Intent.ACTION_UNINSTALL_PACKAGE,
-                            Uri.fromParts("package", app.pkg, null)));
+                    // startActivityForResult sets the calling package —
+                    // UninstallerActivity finishes instantly without it
+                    startActivityForResult(new Intent(Intent.ACTION_UNINSTALL_PACKAGE,
+                            Uri.fromParts("package", app.pkg, null)), 0);
                 } catch (Exception ignored) {}
             });
         } else {

@@ -24,7 +24,7 @@ final class AppTile extends LinearLayout {
 
     private final FrameLayout box;
     private FrameLayout card;
-    private final View glow, sheen;
+    private final View sheen;
     private final TextView label;
     private final int bright;
 
@@ -42,21 +42,6 @@ final class AppTile extends LinearLayout {
         box.setClipChildren(false);
         box.setClipToPadding(false);
         addView(box, new LinearLayout.LayoutParams(w, h));
-
-        // soft halo behind the card — square so the radial fade never
-        // gets clipped by the view's own bounds
-        glow = new View(ctx);
-        int gs = (int) (h * 1.5f);
-        GradientDrawable glowBg = new GradientDrawable();
-        glowBg.setGradientType(GradientDrawable.RADIAL_GRADIENT);
-        glowBg.setGradientCenter(0.5f, 0.5f);
-        glowBg.setGradientRadius(gs / 2f);
-        glowBg.setColors(new int[]{0x33FFFFFF, 0x00FFFFFF});
-        glow.setBackground(glowBg);
-        glow.setAlpha(0f);
-        FrameLayout.LayoutParams glowLp = new FrameLayout.LayoutParams(gs, gs);
-        glowLp.gravity = Gravity.CENTER;
-        box.addView(glow, glowLp);
 
         FrameLayout card = new FrameLayout(ctx);
         GradientDrawable cardBg = new GradientDrawable();
@@ -124,7 +109,6 @@ final class AppTile extends LinearLayout {
                 .setDuration(FOCUS_MS)
                 .setInterpolator(new DecelerateInterpolator(1.6f))
                 .start();
-        glow.animate().alpha(focused ? 1f : 0f).setDuration(FOCUS_MS).start();
         sheen.animate().alpha(focused ? 0.10f : 0f).setDuration(FOCUS_MS).start();
         card.animate().translationZ(focused ? 14f : 0f)
                 .setDuration(FOCUS_MS).start();

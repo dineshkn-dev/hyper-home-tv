@@ -860,6 +860,20 @@ public final class HomeActivity extends Activity {
     }
 
     @Override public boolean dispatchKeyEvent(KeyEvent e) {
+        // the blob reacts to any interaction
+        if (e.getAction() == KeyEvent.ACTION_DOWN) {
+            BuddyView b = findViewById(R.id.buddy);
+            if (b != null) switch (e.getKeyCode()) {
+                case KeyEvent.KEYCODE_DPAD_LEFT:   b.walk(-1);    break;
+                case KeyEvent.KEYCODE_DPAD_RIGHT:  b.walk(1);     break;
+                case KeyEvent.KEYCODE_DPAD_UP:     b.look(0, -1); break;
+                case KeyEvent.KEYCODE_DPAD_DOWN:   b.look(0, 1);  break;
+                case KeyEvent.KEYCODE_DPAD_CENTER:
+                case KeyEvent.KEYCODE_ENTER:       b.hop();       break;
+                case KeyEvent.KEYCODE_BACK:        b.boop();      break;
+                default: b.look(0, 0);
+            }
+        }
         // while menu is open, trap horizontal nav inside it; BACK dismisses
         if (menuOpen) {
             if (e.getKeyCode() == KeyEvent.KEYCODE_BACK

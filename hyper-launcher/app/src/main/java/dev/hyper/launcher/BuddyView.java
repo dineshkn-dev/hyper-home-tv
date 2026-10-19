@@ -41,6 +41,7 @@ public final class BuddyView extends View {
     private float lookX, lookY, tLookX, tLookY;
     private float squash, hopY;
     private float facing = -1f;
+    private int mode = 0;   // 0 = full, 1 = ambient only, 2 = hidden
 
     private float tx, curX, walkPhase, lean;
     private GroundView ground;
@@ -70,7 +71,7 @@ public final class BuddyView extends View {
             squash *= 0.86f;
             if (hopY < 0) { hopY *= 0.82f; if (hopY > -0.5f) hopY = 0; }
 
-            sleeping = now - lastAction > IDLE_SLEEP_MS;
+            sleeping = mode == 0 && now - lastAction > IDLE_SLEEP_MS;
             if (!sleeping && now >= nextBlink && blinkAt < 0) {
                 blinkAt = now;
                 nextBlink = now + 2200 + rng.nextInt(3200);
@@ -128,7 +129,10 @@ public final class BuddyView extends View {
         }
     };
 
+    public void setMode(int m) { mode = m; }
+
     public void walk(int dir) {
+        if (mode != 0) return;
         float d = getResources().getDisplayMetrics().density;
         tx += dir * STEP_DP * 0.5f * d;
         if (ground != null) ground.scroll(-dir * STEP_DP * 0.4f * d);
@@ -137,9 +141,13 @@ public final class BuddyView extends View {
         wake();
     }
 
-    public void look(float dx, float dy) { tLookX = dx; tLookY = dy; wake(); }
-    public void hop() { squash = 1f; hopY = -1f; wake(); }
-    public void boop() { squash = -0.9f; wake(); }
+    public void look(float dx, float dy) {
+        if (mode == 2) return;      // hidden — nothing to react
+        tLookX = dx; tLookY = dy;   // ambient still watches you
+        if (mode == 0) wake();
+    }
+    public void hop() { if (mode != 0) return; squash = 1f; hopY = -1f; wake(); }
+    public void boop() { if (mode != 0) return; squash = -0.9f; wake(); }
     private void wake() {
         lastAction = SystemClock.uptimeMillis();
         sleeping = false;

@@ -21,6 +21,7 @@ final class AppTile extends LinearLayout {
 
     private static final int FOCUS_MS = 180;
     private static final float FOCUS_SCALE = 1.14f;
+    static boolean labelsAlways;   // settings: always show app names
 
     private final FrameLayout box;
     private FrameLayout card;
@@ -94,7 +95,7 @@ final class AppTile extends LinearLayout {
         label.setGravity(Gravity.CENTER);
         label.setTextSize(12f);
         label.setTextColor(bright);
-        label.setAlpha(0f);
+        label.setAlpha(labelsAlways ? 1f : 0f);
         label.setPadding(0, (int) (8 * d), 0, 0);
         addView(label, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -112,6 +113,7 @@ final class AppTile extends LinearLayout {
         sheen.animate().alpha(focused ? 0.10f : 0f).setDuration(FOCUS_MS).start();
         card.animate().translationZ(focused ? 14f : 0f)
                 .setDuration(FOCUS_MS).start();
-        label.animate().alpha(focused ? 1f : 0f).setDuration(FOCUS_MS).start();
+        label.animate().alpha(focused || labelsAlways ? 1f : 0f)
+                .setDuration(FOCUS_MS).start();
     }
 }

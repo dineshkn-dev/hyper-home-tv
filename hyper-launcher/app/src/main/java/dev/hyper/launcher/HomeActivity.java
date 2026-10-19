@@ -120,6 +120,24 @@ public final class HomeActivity extends Activity {
             }
         });
 
+        ImageView paw = findViewById(R.id.launcherBtn);
+        paw.setOnClickListener(v ->
+                startActivity(new Intent(this, LauncherSettingsActivity.class)));
+        paw.setOnFocusChangeListener((v, has) -> {
+            GradientDrawable pb = new GradientDrawable();
+            pb.setShape(GradientDrawable.OVAL);
+            pb.setColor(has ? 0x2EFFFFFF : 0x00000000);
+            v.setBackground(pb);
+            v.animate().scaleX(has ? 1.18f : 1f).scaleY(has ? 1.18f : 1f)
+                    .setDuration(160).start();
+            ((ImageView) v).setColorFilter(has ? 0xFFE8EDF8 : 0xFF8A94AA);
+            if (has) {
+                barFocus = v;
+                if (lastSelectedTile instanceof AppTile)
+                    ((AppTile) lastSelectedTile).setFocusedState(false);
+            }
+        });
+
         View date = findViewById(R.id.date);
         date.setOnClickListener(v -> showCalendarDialog());
         date.setOnFocusChangeListener((v, has) -> {
@@ -221,14 +239,43 @@ public final class HomeActivity extends Activity {
         cm.registerDefaultNetworkCallback(netCb);
         updateWifi();
         loadApps();
+        applyPrefs();
         ((BuddyView) findViewById(R.id.buddy))
                 .setGround(findViewById(R.id.ground));
-        restoreWeather();          // paint last known weather instantly
-        handler.post(weatherTick);
+        if (prefs().getBoolean(LauncherSettingsActivity.K_WEATHER, true)) {
+            restoreWeather();      // paint last known weather instantly
+            handler.post(weatherTick);
+        }
+    }
+
+    /** settings from the Launcher page — applied each time we resume */
+    private void applyPrefs() {
+        android.content.SharedPreferences p = prefs();
+        int mode = p.getInt(LauncherSettingsActivity.K_COMPANION, 0);
+        int vis = mode == 2 ? View.GONE : View.VISIBLE;
+        findViewById(R.id.buddy).setVisibility(vis);
+        findViewById(R.id.ground).setVisibility(vis);
+        ((BuddyView) findViewById(R.id.buddy)).setMode(mode);
+
+        boolean seconds = p.getBoolean(
+                LauncherSettingsActivity.K_SECONDS, true);
+        android.widget.TextClock clock = findViewById(R.id.clock);
+        clock.setFormat12Hour(seconds ? "h:mm:ss a" : "h:mm a");
+        clock.setFormat24Hour(seconds ? "H:mm:ss" : "H:mm");
+
+        AppTile.labelsAlways = p.getBoolean(
+                LauncherSettingsActivity.K_LABELS, false);
+
+        if (!p.getBoolean(LauncherSettingsActivity.K_WEATHER, true))
+            findViewById(R.id.weather).setVisibility(View.GONE);
     }
 
     private void updateWifi() {
         View group = findViewById(R.id.wifiGroup);
+        if (!prefs().getBoolean(LauncherSettingsActivity.K_WIFI, true)) {
+            group.setVisibility(View.GONE);
+            return;
+        }
         ImageView ic = findViewById(R.id.wifiIcon);
         TextView ssidView = findViewById(R.id.ssid);
         ssidView.setSelected(true);   // marquee always scrolls

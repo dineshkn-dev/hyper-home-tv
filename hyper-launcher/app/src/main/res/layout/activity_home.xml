@@ -24,6 +24,19 @@
             android:gravity="center_vertical"
             android:layout_marginBottom="36dp">
 
+            <!-- launcher settings -->
+            <ImageView
+                android:id="@+id/launcherBtn"
+                android:layout_width="30dp"
+                android:layout_height="30dp"
+                android:src="@drawable/ic_paw"
+                android:alpha="0.55"
+                android:padding="5dp"
+                android:layout_marginEnd="14dp"
+                android:focusable="true"
+                android:clickable="true"
+                android:contentDescription="Launcher settings" />
+
             <View
                 android:layout_width="0dp"
                 android:layout_height="1dp"

@@ -92,6 +92,34 @@ public final class HomeActivity extends Activity {
         setContentView(R.layout.activity_home);
         grid = findViewById(R.id.grid);
         hint = findViewById(R.id.hint);
+
+        // top scrim only while content is meaningfully scrolled up —
+        // a micro ensure-visible offset (a few px) must not trigger it
+        final View topFade = findViewById(R.id.gridFadeTop);
+        final int fadeSlack =
+                (int) (24 * getResources().getDisplayMetrics().density);
+        final Runnable syncTopFade = () -> {
+            View fc = grid.getChildAt(0);
+            boolean up = grid.getFirstVisiblePosition() > 0
+                    || (fc != null && fc.getTop() < -fadeSlack);
+            if ((topFade.getAlpha() > 0.5f) != up)
+                topFade.animate().alpha(up ? 1f : 0f)
+                        .setDuration(220).start();
+        };
+        grid.setOnScrollListener(new android.widget.AbsListView.OnScrollListener() {
+            @Override public void onScrollStateChanged(
+                    android.widget.AbsListView v, int s) {
+                if (s == SCROLL_STATE_IDLE) v.post(syncTopFade);
+            }
+            @Override public void onScroll(android.widget.AbsListView v,
+                    int first, int count, int total) {
+                syncTopFade.run();
+            }
+        });
+        // relayouts / the restore-scroll can leave it stuck — resync after
+        grid.addOnLayoutChangeListener(
+                (v, l, t, r, bo, ol, ot, or, ob) -> syncTopFade.run());
+        grid.postDelayed(syncTopFade::run, 600);
         for (String p : prefs().getString("hidden", "").split("\n")) {
             p = p.trim();
             if (!p.isEmpty()) hiddenPkgs.add(p);
@@ -263,6 +291,10 @@ public final class HomeActivity extends Activity {
         ChaseView chase = findViewById(R.id.chase);
         chase.setMode(mode);
         chase.setMouseEnabled(mouseOn);
+
+        findViewById(R.id.heroStrip).setVisibility(
+                p.getBoolean(LauncherSettingsActivity.K_HERO, true)
+                        ? View.VISIBLE : View.GONE);
 
         boolean seconds = p.getBoolean(
                 LauncherSettingsActivity.K_SECONDS, true);

@@ -14,7 +14,7 @@
         android:paddingStart="64dp"
         android:paddingEnd="64dp"
         android:paddingTop="36dp"
-        android:paddingBottom="32dp">
+        android:paddingBottom="10dp">
 
         <!-- minimal top bar -->
         <LinearLayout
@@ -129,34 +129,66 @@
                 android:contentDescription="Settings" />
         </LinearLayout>
 
-        <!-- app grid -->
-        <GridView
-            android:id="@+id/grid"
+        <!-- hero stats strip -->
+        <dev.hyper.launcher.HeroStrip
+            android:id="@+id/heroStrip"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="6dp" />
+
+        <!-- app grid + top scrim (tiles dissolve under the hero strip) -->
+        <FrameLayout
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1"
-            android:numColumns="6"
-            android:horizontalSpacing="18dp"
-            android:verticalSpacing="18dp"
-            android:layout_marginTop="28dp"
-            android:stretchMode="columnWidth"
-            android:scrollbars="none"
-            android:overScrollMode="never"
-            android:clipToPadding="false"
-            android:clipChildren="false"
-            android:listSelector="@android:color/transparent" />
+            android:layout_marginTop="18dp"
+            android:clipChildren="false">
 
-        <!-- move-mode hint bar -->
-        <TextView
-            android:id="@+id/hint"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:gravity="center"
-            android:textColor="@color/text_dim"
-            android:textSize="13sp"
-            android:alpha="0"
-            android:layout_marginTop="14dp" />
+            <GridView
+                android:id="@+id/grid"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:numColumns="6"
+                android:horizontalSpacing="18dp"
+                android:verticalSpacing="18dp"
+                android:stretchMode="columnWidth"
+                android:scrollbars="none"
+                android:overScrollMode="never"
+                android:clipToPadding="false"
+                android:clipChildren="false"
+                android:listSelector="@android:color/transparent" />
+
+            <View
+                android:id="@+id/gridFadeTop"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:layout_gravity="top"
+                android:background="@drawable/fade_top"
+                android:alpha="0"
+                android:importantForAccessibility="no" />
+        </FrameLayout>
+
     </LinearLayout>
+
+    <!-- bottom scrim: tiles dissolve into the floor before the cat zone -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="130dp"
+        android:layout_gravity="bottom"
+        android:background="@drawable/fade_bottom"
+        android:importantForAccessibility="no" />
+
+    <!-- move-mode hint bar — above the scrim, not in flow -->
+    <TextView
+        android:id="@+id/hint"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:textColor="@color/text_dim"
+        android:textSize="13sp"
+        android:alpha="0"
+        android:layout_gravity="bottom|center_horizontal"
+        android:layout_marginBottom="70dp" />
 
     <!-- ground strip with rocks & grass -->
     <dev.hyper.launcher.GroundView

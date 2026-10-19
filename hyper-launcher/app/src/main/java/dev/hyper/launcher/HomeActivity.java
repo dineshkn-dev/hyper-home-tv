@@ -1007,6 +1007,7 @@ public final class HomeActivity extends Activity {
         }
     }
 
+
     private void populate() {
         List<AppEntry> display = new ArrayList<>();
         for (AppEntry a : orderedApps)

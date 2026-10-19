@@ -1,184 +1,69 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:orientation="vertical"
     android:clipChildren="false"
-    android:clipToPadding="false">
+    android:clipToPadding="false"
+    android:paddingStart="64dp"
+    android:paddingEnd="64dp"
+    android:paddingTop="36dp"
+    android:paddingBottom="32dp">
 
-    <ImageView
-        android:id="@+id/heroA"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:scaleType="centerCrop"
-        android:alpha="0" />
-    <ImageView
-        android:id="@+id/heroB"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:scaleType="centerCrop"
-        android:alpha="0" />
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:background="@drawable/hero_scrim" />
-
+    <!-- minimal top bar -->
     <LinearLayout
-        android:id="@+id/content"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:orientation="vertical"
-        android:clipChildren="false"
-        android:clipToPadding="false">
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="36dp">
 
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:paddingStart="52dp"
-            android:paddingEnd="52dp"
-            android:paddingTop="28dp">
-
-            <TextView
-                android:id="@+id/brand"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="hyper"
-                android:textColor="@color/accent"
-                android:textSize="20sp"
-                android:textStyle="bold"
-                android:letterSpacing="0.18" />
-
-            <LinearLayout
-                android:id="@+id/tabs"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="48dp"
-                android:orientation="horizontal" />
-
-            <View
-                android:layout_width="0dp"
-                android:layout_height="1dp"
-                android:layout_weight="1" />
-
-            <TextView
-                android:id="@+id/date"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:textColor="@color/text_dim"
-                android:textSize="14sp"
-                android:layout_marginEnd="18dp" />
-
-            <TextClock
-                android:id="@+id/clock"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:format12Hour="h:mm"
-                android:format24Hour="H:mm"
-                android:textColor="@color/text"
-                android:textSize="22sp"
-                android:textStyle="bold" />
-        </LinearLayout>
-
-        <Space
-            android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1" />
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="bottom"
-            android:paddingStart="52dp"
-            android:paddingEnd="52dp"
-            android:layout_marginBottom="18dp">
-
-            <TextView
-                android:id="@+id/heroName"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:textColor="@color/text"
-                android:textSize="42sp"
-                android:textStyle="bold"
-                android:letterSpacing="0.01" />
-
-            <View
-                android:layout_width="0dp"
-                android:layout_height="1dp"
-                android:layout_weight="1" />
-
-            <TextView
-                android:id="@+id/heroHint"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:textColor="@color/text_dim"
-                android:textSize="15sp"
-                android:layout_marginBottom="10dp" />
-        </LinearLayout>
-
-        <LinearLayout
-            android:id="@+id/shelves"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:clipChildren="false"
-            android:clipToPadding="false" />
-    </LinearLayout>
-
-    <FrameLayout
-        android:id="@+id/overlay"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:background="#CC05060B"
-        android:alpha="0"
-        android:visibility="gone">
-
-        <LinearLayout
-            android:id="@+id/overlayPanel"
+        <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            android:orientation="vertical"
-            android:padding="28dp"
-            android:background="@drawable/tile_bg" />
-    </FrameLayout>
+            android:text="hyper"
+            android:textColor="@color/accent"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:letterSpacing="0.18" />
 
-    <FrameLayout
-        android:id="@+id/screensaver"
+        <View
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_weight="1" />
+
+        <TextView
+            android:id="@+id/date"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="@color/text_dim"
+            android:textSize="14sp"
+            android:layout_marginEnd="18dp" />
+
+        <TextClock
+            android:id="@+id/clock"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:format12Hour="h:mm"
+            android:format24Hour="H:mm"
+            android:textColor="@color/text"
+            android:textSize="20sp" />
+    </LinearLayout>
+
+    <!-- app grid -->
+    <GridView
+        android:id="@+id/grid"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:background="#000000"
-        android:alpha="0"
-        android:visibility="gone">
-
-        <ImageView
-            android:id="@+id/saverArt"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:scaleType="centerCrop"
-            android:alpha="0.35" />
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:gravity="center"
-            android:orientation="vertical">
-
-            <TextView
-                android:id="@+id/saverClock"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:textColor="@color/text"
-                android:textSize="120sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:id="@+id/saverDate"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:textColor="@color/text_dim"
-                android:textSize="24sp" />
-        </LinearLayout>
-    </FrameLayout>
-</FrameLayout>
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:numColumns="6"
+        android:horizontalSpacing="18dp"
+        android:verticalSpacing="18dp"
+        android:layout_marginTop="28dp"
+        android:stretchMode="columnWidth"
+        android:scrollbars="none"
+        android:overScrollMode="never"
+        android:clipToPadding="false"
+        android:clipChildren="false"
+        android:listSelector="@android:color/transparent" />
+</LinearLayout>

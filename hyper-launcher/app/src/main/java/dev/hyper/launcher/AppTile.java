@@ -26,7 +26,7 @@ final class AppTile extends LinearLayout {
     private FrameLayout card;
     private final View glow, sheen;
     private final TextView label;
-    private final int dim, bright;
+    private final int bright;
 
     AppTile(Context ctx, AppEntry app, int w, int h) {
         super(ctx);
@@ -36,7 +36,6 @@ final class AppTile extends LinearLayout {
 
         float d = getResources().getDisplayMetrics().density;
         float corner = 14 * d;
-        dim = 0xFF69748F;
         bright = 0xFFE8EDF8;
 
         box = new FrameLayout(ctx);
@@ -109,7 +108,8 @@ final class AppTile extends LinearLayout {
         label.setSingleLine(true);
         label.setGravity(Gravity.CENTER);
         label.setTextSize(12f);
-        label.setTextColor(dim);
+        label.setTextColor(bright);
+        label.setAlpha(0f);
         label.setPadding(0, (int) (8 * d), 0, 0);
         addView(label, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -128,6 +128,6 @@ final class AppTile extends LinearLayout {
         sheen.animate().alpha(focused ? 0.10f : 0f).setDuration(FOCUS_MS).start();
         card.animate().translationZ(focused ? 14f : 0f)
                 .setDuration(FOCUS_MS).start();
-        label.setTextColor(focused ? bright : dim);
+        label.animate().alpha(focused ? 1f : 0f).setDuration(FOCUS_MS).start();
     }
 }

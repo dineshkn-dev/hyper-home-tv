@@ -43,6 +43,8 @@ import java.util.Set;
 
 public final class HomeActivity extends Activity {
 
+    private static final String SETTINGS_PKG = "com.android.tv.settings";
+
     private GridView grid;
     private TextView hint;
     private AppAdapter adapter;
@@ -69,6 +71,36 @@ public final class HomeActivity extends Activity {
         }
         lastPkg = prefs().getString("last", null);
         updateDate();
+
+        ImageView gear = findViewById(R.id.settingsBtn);
+        gear.setOnClickListener(v -> {
+            for (AppEntry a : orderedApps)
+                if (a.pkg.equals(SETTINGS_PKG)) { launch(a); return; }
+            try { startActivity(new Intent(Settings.ACTION_SETTINGS)); }
+            catch (Exception ignored) {}
+        });
+        gear.setOnFocusChangeListener((v, has) -> {
+            GradientDrawable gb = new GradientDrawable();
+            gb.setShape(GradientDrawable.OVAL);
+            gb.setColor(has ? 0x2EFFFFFF : 0x00000000);
+            v.setBackground(gb);
+            v.animate().scaleX(has ? 1.18f : 1f).scaleY(has ? 1.18f : 1f)
+                    .setDuration(160).start();
+            ((ImageView) v).setColorFilter(has ? 0xFFE8EDF8 : 0xFF8A94AA);
+            // drop the tile's focused look while the gear holds focus
+            if (has && lastSelectedTile instanceof AppTile)
+                ((AppTile) lastSelectedTile).setFocusedState(false);
+        });
+        // re-paint focus when it comes back to the grid
+        grid.setOnFocusChangeListener((v, has) -> {
+            if (has) {
+                View sel = grid.getSelectedView();
+                if (sel instanceof AppTile) {
+                    ((AppTile) sel).setFocusedState(true);
+                    lastSelectedTile = sel;
+                }
+            }
+        });
 
         grid.setOnItemClickListener((p, v, pos, id) -> {
             if (!moving && !menuOpen) launch(allApps.get(pos));
@@ -489,8 +521,11 @@ public final class HomeActivity extends Activity {
     private void populate() {
         List<AppEntry> display = new ArrayList<>();
         for (AppEntry a : orderedApps)
-            if (!hiddenPkgs.contains(a.pkg)) display.add(a);
+            if (!hiddenPkgs.contains(a.pkg) && !a.pkg.equals(SETTINGS_PKG))
+                display.add(a);
         allApps = display;
+        findViewById(R.id.settingsBtn).setVisibility(
+                hiddenPkgs.contains(SETTINGS_PKG) ? View.GONE : View.VISIBLE);
 
         float d = getResources().getDisplayMetrics().density;
         int screenW = getResources().getDisplayMetrics().widthPixels;

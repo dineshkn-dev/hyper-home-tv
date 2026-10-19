@@ -21,6 +21,7 @@ public final class LauncherSettingsActivity extends Activity {
 
     static final String PREF = "hyper";
     static final String K_COMPANION = "companion";   // 0 full, 1 ambient, 2 off
+    static final String K_MOUSE = "mouse";
     static final String K_SECONDS = "seconds";
     static final String K_LABELS = "labels";         // true = always show names
     static final String K_WEATHER = "weather";
@@ -85,6 +86,11 @@ public final class LauncherSettingsActivity extends Activity {
                 () -> new String[]{"Full", "Ambient", "Off"},
                 () -> prefs.getInt(K_COMPANION, 0),
                 i -> prefs.edit().putInt(K_COMPANION, i).apply());
+        addRow(col, R.drawable.ic_mouse, "Mouse chase",
+                "Jerry pops out while the cat sleeps",
+                () -> new String[]{"On", "Off"},
+                () -> prefs.getBoolean(K_MOUSE, true) ? 0 : 1,
+                i -> prefs.edit().putBoolean(K_MOUSE, i == 0).apply());
         addRow(col, R.drawable.ic_clock, "Clock seconds",
                 "Show seconds in the top-bar clock",
                 () -> new String[]{"On", "Off"},

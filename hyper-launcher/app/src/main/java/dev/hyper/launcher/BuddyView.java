@@ -46,6 +46,7 @@ public final class BuddyView extends View {
     private float tx, curX, walkPhase, lean;
     private GroundView ground;
     private float airY, vy;
+    private boolean chasing;
 
     public BuddyView(Context c) { super(c); init(); }
     public BuddyView(Context c, AttributeSet a) { super(c, a); init(); }
@@ -86,8 +87,10 @@ public final class BuddyView extends View {
                     Math.max(leftEdge - getWidth(), tx));
             float diff = tx - curX;
             if (Math.abs(diff) > 1.5f) {
-                curX += diff * 0.12f;
-                walkPhase += 0.42f;
+                curX += chasing
+                        ? Math.signum(diff) * Math.min(Math.abs(diff), 11 * d)
+                        : diff * 0.12f;   // chase = capped sprint, not a leap
+                walkPhase += chasing ? 0.7f : 0.42f;
                 lean += ((Math.signum(diff) * 0.06f) - lean) * 0.2f;
             } else {
                 curX = tx;
@@ -148,9 +151,53 @@ public final class BuddyView extends View {
     }
     public void hop() { if (mode != 0) return; squash = 1f; hopY = -1f; wake(); }
     public void boop() { if (mode != 0) return; squash = -0.9f; wake(); }
-    private void wake() {
+    public void wake() {
         lastAction = SystemClock.uptimeMillis();
         sleeping = false;
+    }
+
+    /** true while dozing — ChaseView waits for this before Jerry sneaks out */
+    public boolean isSleeping() { return sleeping; }
+
+    /** screen-x of the cat's centre, for the chase choreography */
+    public float centerX() { return getLeft() + curX + getWidth() / 2f; }
+
+    /** stroll to a screen-x at normal pace */
+    public void walkTo(float x) {
+        if (mode != 0) return;
+        chasing = false;
+        goTo(x);
+    }
+
+    /** sprint after a target screen-x — call every frame while chasing */
+    public void chase(float x) {
+        if (mode != 0) return;
+        chasing = true;
+        goTo(x);
+    }
+
+    private void goTo(float x) {
+        tx = x - getLeft() - getWidth() / 2f;
+        float dir = Math.signum(tx - curX);
+        if (dir != 0) facing = dir;
+        tLookX = facing * 0.8f;
+        wake();
+    }
+
+    /** turn to face a direction without moving */
+    public void face(float dir) {
+        if (dir != 0) { facing = dir; tLookX = dir * 0.8f; }
+        wake();
+    }
+
+    /** stop sprinting — lets the cat settle where it is */
+    public void stopChase() { chasing = false; }
+
+    /** drop straight back to sleep, stopping wherever the chase ended */
+    public void doze() {
+        lastAction = 0;
+        chasing = false;
+        tx = curX;
     }
 
     @Override protected void onDraw(Canvas c) {

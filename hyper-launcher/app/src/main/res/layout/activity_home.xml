@@ -172,4 +172,12 @@
         android:layout_height="120dp"
         android:layout_gravity="bottom|end"
         android:layout_marginEnd="30dp" />
+
+    <!-- mouse hole + Jerry sketch layer -->
+    <dev.hyper.launcher.ChaseView
+        android:id="@+id/chase"
+        android:layout_width="match_parent"
+        android:layout_height="170dp"
+        android:layout_gravity="bottom"
+        android:importantForAccessibility="no" />
 </FrameLayout>

@@ -240,8 +240,9 @@ public final class HomeActivity extends Activity {
         updateWifi();
         loadApps();
         applyPrefs();
-        ((BuddyView) findViewById(R.id.buddy))
-                .setGround(findViewById(R.id.ground));
+        BuddyView buddy = findViewById(R.id.buddy);
+        buddy.setGround(findViewById(R.id.ground));
+        ((ChaseView) findViewById(R.id.chase)).setBuddy(buddy);
         if (prefs().getBoolean(LauncherSettingsActivity.K_WEATHER, true)) {
             restoreWeather();      // paint last known weather instantly
             handler.post(weatherTick);
@@ -255,7 +256,13 @@ public final class HomeActivity extends Activity {
         int vis = mode == 2 ? View.GONE : View.VISIBLE;
         findViewById(R.id.buddy).setVisibility(vis);
         findViewById(R.id.ground).setVisibility(vis);
+        boolean mouseOn = p.getBoolean(
+                LauncherSettingsActivity.K_MOUSE, true);
+        findViewById(R.id.chase).setVisibility(mouseOn ? vis : View.GONE);
         ((BuddyView) findViewById(R.id.buddy)).setMode(mode);
+        ChaseView chase = findViewById(R.id.chase);
+        chase.setMode(mode);
+        chase.setMouseEnabled(mouseOn);
 
         boolean seconds = p.getBoolean(
                 LauncherSettingsActivity.K_SECONDS, true);

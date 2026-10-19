@@ -1,9 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- No INTERNET permission: this launcher cannot phone home. Ever. -->
+    <!-- INTERNET is used ONLY for anonymous weather (Open-Meteo) + IP
+         geolocation for the top-bar status. No analytics, no ads. -->
+    <uses-permission android:name="android.permission.INTERNET" />
     <!-- Lets us trigger the system uninstall confirmation for user apps -->
     <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
+    <!-- Status icon only — read connectivity state, still no INTERNET -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <!-- Needed by Android 12+ just to read the connected SSID for the status bar -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-feature android:name="android.software.leanback" android:required="false" />
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
     <uses-feature android:name="android.hardware.faketouch" android:required="false" />

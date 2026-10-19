@@ -8,6 +8,11 @@ import android.content.IntentFilter;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
+import android.location.Location;
+import android.location.LocationManager;
+import android.net.ConnectivityManager;
+import android.net.Network;
+import android.net.NetworkCapabilities;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
@@ -55,6 +60,22 @@ public final class HomeActivity extends Activity {
     private Dialog menuDlg;
     private boolean menuOpen, moving;
     private String lastPkg;
+    private ConnectivityManager cm;
+    private final android.os.Handler handler =
+            new android.os.Handler(android.os.Looper.getMainLooper());
+    private final Runnable weatherTick = new Runnable() {
+        @Override public void run() {
+            fetchWeather();
+            handler.postDelayed(this, 30 * 60 * 1000);   // 30 min
+        }
+    };
+    private final ConnectivityManager.NetworkCallback netCb =
+            new ConnectivityManager.NetworkCallback() {
+        @Override public void onAvailable(Network n) { updateWifi(); }
+        @Override public void onLost(Network n) { updateWifi(); }
+        @Override public void onCapabilitiesChanged(Network n,
+                NetworkCapabilities c) { updateWifi(); }
+    };
 
     private final BroadcastReceiver pkgReceiver = new BroadcastReceiver() {
         @Override public void onReceive(Context c, Intent i) { loadApps(); }
@@ -88,6 +109,29 @@ public final class HomeActivity extends Activity {
                     .setDuration(160).start();
             ((ImageView) v).setColorFilter(has ? 0xFFE8EDF8 : 0xFF8A94AA);
             // drop the tile's focused look while the gear holds focus
+            if (has && lastSelectedTile instanceof AppTile)
+                ((AppTile) lastSelectedTile).setFocusedState(false);
+        });
+
+        View date = findViewById(R.id.date);
+        date.setOnClickListener(v -> showCalendarDialog());
+        date.setOnFocusChangeListener((v, has) -> {
+            GradientDrawable db = new GradientDrawable();
+            db.setColor(has ? 0x2EFFFFFF : 0x00000000);
+            db.setCornerRadius(12 * getResources().getDisplayMetrics().density);
+            v.setBackground(db);
+            ((TextView) v).setTextColor(has ? 0xFFE8EDF8 : 0xFF8A94AA);
+            if (has && lastSelectedTile instanceof AppTile)
+                ((AppTile) lastSelectedTile).setFocusedState(false);
+        });
+
+        View wifi = findViewById(R.id.wifiGroup);
+        wifi.setOnClickListener(v -> showWifiDialog());
+        wifi.setOnFocusChangeListener((v, has) -> {
+            GradientDrawable wb = new GradientDrawable();
+            wb.setColor(has ? 0x2EFFFFFF : 0x00000000);
+            wb.setCornerRadius(12 * getResources().getDisplayMetrics().density);
+            v.setBackground(wb);
             if (has && lastSelectedTile instanceof AppTile)
                 ((AppTile) lastSelectedTile).setFocusedState(false);
         });
@@ -144,13 +188,131 @@ public final class HomeActivity extends Activity {
         if (Build.VERSION.SDK_INT >= 33)
             registerReceiver(pkgReceiver, f, Context.RECEIVER_NOT_EXPORTED);
         else registerReceiver(pkgReceiver, f);
+        cm = (ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
+        cm.registerDefaultNetworkCallback(netCb);
+        updateWifi();
         loadApps();
+        handler.post(weatherTick);
+    }
+
+    private void updateWifi() {
+        View group = findViewById(R.id.wifiGroup);
+        ImageView ic = findViewById(R.id.wifiIcon);
+        TextView ssidView = findViewById(R.id.ssid);
+        ssidView.setSelected(true);   // marquee always scrolls
+        NetworkCapabilities c = cm.getNetworkCapabilities(cm.getActiveNetwork());
+        String ssid = readSsid();
+        runOnUiThread(() -> {
+            if (c != null && c.hasTransport(
+                    NetworkCapabilities.TRANSPORT_ETHERNET)) {
+                group.setVisibility(View.GONE);       // wired: nothing to show
+            } else if (c != null) {
+                group.setVisibility(View.VISIBLE);
+                ic.setColorFilter(0xFF8A94AA);        // wifi up
+                ssidView.setText(ssid.isEmpty() ? "Wi-Fi" : ssid);
+            } else {
+                group.setVisibility(View.VISIBLE);
+                ic.setColorFilter(0xFFFF6B6B);        // offline
+                ssidView.setText("offline");
+            }
+        });
+    }
+
+    private String readSsid() {
+        try {
+            android.net.wifi.WifiManager wm = (android.net.wifi.WifiManager)
+                    getApplicationContext().getSystemService(WIFI_SERVICE);
+            String s = wm.getConnectionInfo().getSSID();
+            if (s == null || s.equals("<unknown ssid>")) return "";
+            return s.replace("\"", "");
+        } catch (Exception e) {
+            return "";
+        }
     }
 
     @Override protected void onPause() {
         super.onPause();
         closeMenu();
         try { unregisterReceiver(pkgReceiver); } catch (IllegalArgumentException ignored) {}
+        if (cm != null) cm.unregisterNetworkCallback(netCb);
+        handler.removeCallbacks(weatherTick);
+    }
+
+    /* ---------------- weather ---------------- */
+
+    /**
+     * Anonymous weather for the top bar: device location if available,
+     * otherwise coarse IP geolocation, then Open-Meteo (no key, no tracking).
+     */
+    private void fetchWeather() {
+        new Thread(() -> {
+            try {
+                double lat = Double.NaN, lon = Double.NaN;
+                LocationManager lm = (LocationManager)
+                        getSystemService(LOCATION_SERVICE);
+                try {
+                    Location loc = lm.getLastKnownLocation(
+                            LocationManager.NETWORK_PROVIDER);
+                    if (loc == null)
+                        loc = lm.getLastKnownLocation(
+                                LocationManager.PASSIVE_PROVIDER);
+                    if (loc != null) { lat = loc.getLatitude(); lon = loc.getLongitude(); }
+                } catch (SecurityException ignored) {}
+
+                if (Double.isNaN(lat)) {
+                    org.json.JSONObject geo = getJson(
+                            "https://ipwho.is/?fields=success,latitude,longitude");
+                    if (!geo.optBoolean("success"))
+                        throw new Exception("geo failed");
+                    lat = geo.getDouble("latitude");
+                    lon = geo.getDouble("longitude");
+                }
+
+                org.json.JSONObject w = getJson(
+                        "https://api.open-meteo.com/v1/forecast?latitude=" + lat
+                        + "&longitude=" + lon
+                        + "&current=temperature_2m,weather_code&timezone=auto");
+                org.json.JSONObject cur = w.getJSONObject("current");
+                double t = cur.getDouble("temperature_2m");
+                int code = cur.getInt("weather_code");
+                final String label = weatherIcon(code) + " "
+                        + Math.round(t) + "°";
+                runOnUiThread(() -> {
+                    TextView v = findViewById(R.id.weather);
+                    v.setText(label);
+                    v.setVisibility(View.VISIBLE);
+                });
+            } catch (Exception e) {
+                runOnUiThread(() ->
+                        findViewById(R.id.weather).setVisibility(View.GONE));
+            }
+        }, "weather").start();
+    }
+
+    private static org.json.JSONObject getJson(String url) throws Exception {
+        java.net.HttpURLConnection c = (java.net.HttpURLConnection)
+                new java.net.URL(url).openConnection();
+        c.setConnectTimeout(8000);
+        c.setReadTimeout(8000);
+        try {
+            java.io.InputStream in = c.getInputStream();
+            java.util.Scanner sc = new java.util.Scanner(in)
+                    .useDelimiter("\\A");
+            return new org.json.JSONObject(sc.hasNext() ? sc.next() : "{}");
+        } finally { c.disconnect(); }
+    }
+
+    private static String weatherIcon(int c) {
+        if (c == 0) return "☀";
+        if (c <= 2) return "⛅";
+        if (c == 3) return "☁";
+        if (c <= 48) return "🌫";
+        if (c <= 57) return "🌦";
+        if (c <= 67) return "🌧";
+        if (c <= 77) return "❄";
+        if (c <= 82) return "🌧";
+        if (c <= 86) return "🌨";
+        return "⛈";
     }
 
     @Override public void onBackPressed() {
@@ -280,6 +442,173 @@ public final class HomeActivity extends Activity {
 
         buildDialog(menu, 195, x, y, 0f, flipped ? 1f : 0f);
         menu.post(() -> menu.getChildAt(0).requestFocus());
+    }
+
+    /* ---------------- wifi dialog ---------------- */
+
+    private void showWifiDialog() {
+        closeMenu();
+        float d = getResources().getDisplayMetrics().density;
+        LinearLayout panel = new LinearLayout(this);
+        panel.setOrientation(LinearLayout.VERTICAL);
+
+        android.net.wifi.WifiManager wm = (android.net.wifi.WifiManager)
+                getApplicationContext().getSystemService(WIFI_SERVICE);
+        android.net.wifi.WifiInfo wi = wm.getConnectionInfo();
+        String ssid = readSsid();
+
+        TextView title = new TextView(this);
+        title.setText(ssid.isEmpty() ? "Wi-Fi" : ssid);
+        title.setTextSize(16f);
+        title.setTextColor(0xFFE8EDF8);
+        title.setPadding((int) (14 * d), (int) (8 * d), (int) (14 * d),
+                (int) (4 * d));
+        panel.addView(title);
+
+        String band = wi.getFrequency() >= 5000 ? "5 GHz"
+                : wi.getFrequency() > 0 ? "2.4 GHz" : "—";
+        detailRow(panel, d, "Signal", wi.getRssi() + " dBm");
+        detailRow(panel, d, "Band", band + " · " + wi.getLinkSpeed() + " Mbps");
+        String ip = "—";
+        try {
+            for (android.net.LinkAddress la : cm.getLinkProperties(
+                    cm.getActiveNetwork()).getLinkAddresses())
+                if (la.getAddress() instanceof java.net.Inet4Address) {
+                    ip = la.getAddress().getHostAddress();
+                    break;
+                }
+        } catch (Exception ignored) {}
+        detailRow(panel, d, "IP", ip);
+
+        View div = new View(this);
+        div.setBackgroundColor(0x22FFFFFF);
+        LinearLayout.LayoutParams dlp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, (int) (1 * d));
+        dlp.setMargins((int) (10 * d), (int) (6 * d), (int) (10 * d),
+                (int) (6 * d));
+        panel.addView(div, dlp);
+
+        addMenuItem(panel, d, R.drawable.ic_settings, "Wi-Fi settings", () -> {
+            closeMenu();
+            try {
+                startActivity(new Intent(Settings.ACTION_WIFI_SETTINGS));
+            } catch (Exception e) {
+                try { startActivity(new Intent(Settings.ACTION_SETTINGS)); }
+                catch (Exception ignored) {}
+            }
+        });
+        addMenuItem(panel, d, R.drawable.ic_wifi_off, "Disconnect", () -> {
+            closeMenu();
+            try { wm.disconnect(); } catch (Exception ignored) {}
+        });
+
+        View wifi = findViewById(R.id.wifiGroup);
+        int[] loc = new int[2];
+        wifi.getLocationOnScreen(loc);
+        buildDialog(panel, 230,
+                loc[0] - (int) (10 * d),
+                loc[1] + wifi.getHeight() + (int) (4 * d), 0f, 0f);
+        panel.post(() -> {
+            for (int i = 0; i < panel.getChildCount(); i++)
+                if (panel.getChildAt(i).isFocusable()) {
+                    panel.getChildAt(i).requestFocus();
+                    break;
+                }
+        });
+    }
+
+    private void detailRow(LinearLayout panel, float d, String k, String v) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setPadding((int) (14 * d), (int) (3 * d), (int) (14 * d),
+                (int) (3 * d));
+        TextView key = new TextView(this);
+        key.setText(k);
+        key.setTextSize(12.5f);
+        key.setTextColor(0xFF8A94AA);
+        row.addView(key, new LinearLayout.LayoutParams(0,
+                ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+        TextView val = new TextView(this);
+        val.setText(v);
+        val.setTextSize(12.5f);
+        val.setTextColor(0xFFE8EDF8);
+        row.addView(val);
+        panel.addView(row);
+    }
+
+    /* ---------------- calendar ---------------- */
+
+    /** static month view — today highlighted, anchored under the date */
+    private void showCalendarDialog() {
+        closeMenu();
+        float d = getResources().getDisplayMetrics().density;
+        java.util.Calendar cal = java.util.Calendar.getInstance();
+        int today = cal.get(java.util.Calendar.DAY_OF_MONTH);
+
+        LinearLayout panel = new LinearLayout(this);
+        panel.setOrientation(LinearLayout.VERTICAL);
+
+        TextView title = new TextView(this);
+        title.setText(new SimpleDateFormat("MMMM yyyy", Locale.getDefault())
+                .format(cal.getTime()));
+        title.setTextSize(15f);
+        title.setTextColor(0xFFE8EDF8);
+        title.setGravity(Gravity.CENTER);
+        title.setPadding(0, (int) (8 * d), 0, (int) (8 * d));
+        panel.addView(title);
+
+        // weekday header
+        LinearLayout head = new LinearLayout(this);
+        for (char w : new char[]{'S', 'M', 'T', 'W', 'T', 'F', 'S'}) {
+            TextView wd = new TextView(this);
+            wd.setText(String.valueOf(w));
+            wd.setTextSize(11.5f);
+            wd.setTextColor(0xFF69748F);
+            wd.setGravity(Gravity.CENTER);
+            head.addView(wd, new LinearLayout.LayoutParams(
+                    (int) (34 * d), ViewGroup.LayoutParams.WRAP_CONTENT));
+        }
+        panel.addView(head);
+
+        java.util.Calendar first = (java.util.Calendar) cal.clone();
+        first.set(java.util.Calendar.DAY_OF_MONTH, 1);
+        int offset = first.get(java.util.Calendar.DAY_OF_WEEK) - 1; // sun=0
+        int days = first.getActualMaximum(java.util.Calendar.DAY_OF_MONTH);
+
+        int dayNum = 1 - offset;
+        for (int r = 0; r < 6 && dayNum <= days; r++) {
+            LinearLayout row = new LinearLayout(this);
+            for (int cIdx = 0; cIdx < 7; cIdx++) {
+                TextView cell = new TextView(this);
+                int cs = (int) (34 * d);
+                cell.setGravity(Gravity.CENTER);
+                cell.setTextSize(13f);
+                if (dayNum >= 1 && dayNum <= days) {
+                    cell.setText(String.valueOf(dayNum));
+                    if (dayNum == today) {
+                        cell.setTextColor(0xFF0B0D13);
+                        GradientDrawable dot = new GradientDrawable();
+                        dot.setShape(GradientDrawable.OVAL);
+                        dot.setColor(0xFF7A9BFF);
+                        cell.setBackground(dot);
+                    } else {
+                        cell.setTextColor(0xFFAAB3C5);
+                    }
+                }
+                row.addView(cell, new LinearLayout.LayoutParams(cs, cs));
+                dayNum++;
+            }
+            panel.addView(row);
+        }
+
+        View date = findViewById(R.id.date);
+        int[] loc = new int[2];
+        date.getLocationOnScreen(loc);
+        int screenW = getResources().getDisplayMetrics().widthPixels;
+        int panelW = (int) (260 * d);
+        int x = Math.min(loc[0] - (int) (40 * d), screenW - panelW - (int) (16 * d));
+        buildDialog(panel, 260, x,
+                loc[1] + date.getHeight() + (int) (4 * d), 0.5f, 0f);
     }
 
     private void addMenuItem(LinearLayout menu, float d, int iconRes,

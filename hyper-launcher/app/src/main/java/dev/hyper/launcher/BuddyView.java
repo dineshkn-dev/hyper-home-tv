@@ -79,8 +79,8 @@ public final class BuddyView extends View {
 
             float d = getResources().getDisplayMetrics().density;
             float parentW = getRootView().getWidth();
-            float leftEdge = -getLeft() - getWidth();
-            float rightEdge = parentW - getLeft();
+            float leftEdge = -getLeft() - getWidth();   // fully off left
+            float rightEdge = parentW - getLeft();      // fully off right
             tx = Math.min(rightEdge + getWidth(),
                     Math.max(leftEdge - getWidth(), tx));
             float diff = tx - curX;
@@ -93,8 +93,12 @@ public final class BuddyView extends View {
                 lean *= 0.8f;
                 walkPhase *= 0.8f;
             }
-            if (curX < leftEdge + 4 * d) curX = tx = rightEdge;
-            else if (curX > rightEdge - 4 * d) curX = tx = leftEdge;
+            // fully off one edge → land where the sliding twin already is:
+            // fully inside the opposite edge
+            if (curX < leftEdge)
+                curX = tx = rightEdge - getWidth();
+            else if (curX > rightEdge)
+                curX = tx = leftEdge + getWidth();
             setTranslationX(curX);
 
             // auto-jump: a rock dead ahead while moving (grass is soft)
@@ -161,7 +165,15 @@ public final class BuddyView extends View {
         float cy = base - 2 * R * sy - bob + hopY * 16 * d - airY
                 + R * sy;
 
+        // draw a twin on the opposite edge while crossing — seamless wrap
+        float parentW = getRootView().getWidth();
+        float sl = getLeft() + curX;         // view's left edge on screen
+        float[] offs = sl < 0 ? new float[]{0f, parentW}
+                : sl + w > parentW ? new float[]{0f, -parentW}
+                : new float[]{0f};
+        for (float off : offs) {
         c.save();
+        c.translate(off, 0);
         c.rotate(lean * 57.3f, cx, base);   // lean into the walk
 
         // little feet — alternating steps while walking
@@ -288,6 +300,7 @@ public final class BuddyView extends View {
                     cx + mw * 2, cy + R * 0.36f), 10, 160, false, mouth);
         }
         c.restore();
+        }   // end twin offsets
 
         // sleepy z's float off the head — bigger and brighter
         if (sleeping) {

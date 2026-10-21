@@ -20,11 +20,12 @@ import android.widget.Toast;
 import java.util.Locale;
 
 /**
- * In-launcher settings — a two-column layout. Left: grouped glass
- * cards of tinted icon rows with real toggle switches and an inline
- * segment control. Right: a live miniature of the home screen that
- * reacts to every toggle as you press it, plus the System card.
- * All framework views.
+ * In-launcher settings — iOS-style grouped list. Flat dark group
+ * cards with inset hairline separators, tinted icon tiles on the
+ * left, iOS-green toggle switches, a segmented control for the
+ * companion mode, and values/actions on the right edge.
+ * "Mouse chase" lives inside the Companion group and greys out
+ * when the cat itself is Off. All framework views.
  */
 public final class LauncherSettingsActivity extends Activity {
 
@@ -40,37 +41,26 @@ public final class LauncherSettingsActivity extends Activity {
     private static final int TXT    = 0xFFEDF1FA;
     private static final int DIM    = 0xFF7B86A2;
     private static final int ACCENT = 0xFF6EA8FF;
+    private static final int GREEN  = 0xFF30D158;    // iOS switch-on green
 
     private SharedPreferences prefs;
     private float d;
     private View firstFocusable;
-
-    // live-preview pieces
-    private View pvHero, pvWeather, pvWifi, pvMouse, pvHole;
-    private final java.util.List<View> pvLabelBars =
-            new java.util.ArrayList<>();
-    private BuddyView pvCat;
+    private LinearLayout mouseRow;   // companion sub-setting
+    private FrameLayout mouseSw;
 
     @Override protected void onCreate(Bundle b) {
         super.onCreate(b);
         prefs = getSharedPreferences(PREF, MODE_PRIVATE);
         d = getResources().getDisplayMetrics().density;
 
-        LinearLayout root = new LinearLayout(this);
-        root.setOrientation(LinearLayout.HORIZONTAL);
-        root.setClipChildren(false);
-        root.setPadding((int) (64 * d), (int) (40 * d),
-                (int) (64 * d), (int) (32 * d));
-        setContentView(root);
-
-        // ================= left — controls =================
         ScrollView sv = new ScrollView(this);
         sv.setVerticalScrollBarEnabled(false);
         sv.setOverScrollMode(View.OVER_SCROLL_NEVER);
-        LinearLayout.LayoutParams svp = new LinearLayout.LayoutParams(
-                0, LinearLayout.LayoutParams.MATCH_PARENT, 1.05f);
-        svp.setMarginEnd((int) (28 * d));
-        root.addView(sv, svp);
+        sv.setClipToPadding(false);
+        sv.setPadding((int) (64 * d), (int) (40 * d),
+                (int) (64 * d), (int) (40 * d));
+        setContentView(sv);
 
         LinearLayout col = new LinearLayout(this);
         col.setOrientation(LinearLayout.VERTICAL);
@@ -79,316 +69,118 @@ public final class LauncherSettingsActivity extends Activity {
                 ScrollView.LayoutParams.MATCH_PARENT,
                 ScrollView.LayoutParams.WRAP_CONTENT));
 
-        // header
-        LinearLayout head = new LinearLayout(this);
-        head.setGravity(Gravity.CENTER_VERTICAL);
-        FrameLayout badge = new FrameLayout(this);
-        GradientDrawable badgeBg = new GradientDrawable(
-                GradientDrawable.Orientation.TL_BR,
-                new int[]{0x22FFFFFF, 0x0CFFFFFF});
-        badgeBg.setCornerRadius(14 * d);
-        badgeBg.setStroke((int) d, 0x26FFFFFF);
-        badge.setBackground(badgeBg);
-        ImageView logo = new ImageView(this);
-        logo.setImageResource(R.mipmap.ic_launcher);
-        badge.addView(logo, new FrameLayout.LayoutParams(
-                (int) (30 * d), (int) (30 * d), Gravity.CENTER));
-        LinearLayout.LayoutParams bp = new LinearLayout.LayoutParams(
-                (int) (52 * d), (int) (52 * d));
-        bp.setMarginEnd((int) (18 * d));
-        head.addView(badge, bp);
-
-        LinearLayout titles = new LinearLayout(this);
-        titles.setOrientation(LinearLayout.VERTICAL);
-        TextView over = new TextView(this);
-        over.setText("HYPER LAUNCHER");
-        over.setTextSize(11.5f);
-        over.setTextColor(ACCENT);
-        over.setLetterSpacing(0.16f);
-        titles.addView(over);
+        // ---------- header — iOS large title ----------
         TextView title = new TextView(this);
         title.setText("Settings");
-        title.setTextSize(30f);
+        title.setTextSize(34f);
         title.setTextColor(TXT);
-        titles.addView(title);
-        head.addView(titles);
-        col.addView(head);
+        col.addView(title);
+        TextView sub = new TextView(this);
+        sub.setText("Hyper Launcher");
+        sub.setTextSize(13f);
+        sub.setTextColor(DIM);
+        sub.setPadding((int) (2 * d), (int) (2 * d), 0, 0);
+        col.addView(sub);
 
-        LinearLayout g1 = section(col, "Personalize");
-        segmentRow(g1, R.drawable.ic_paw, "Companion",
-                "The little cat on the bottom edge", 0xFF8A7CFF,
+        // ---------- Companion ----------
+        LinearLayout gCat = section(col, "Companion");
+        segmentRow(gCat, R.drawable.ic_paw, "Cat",
+                "Full plays, Ambient rests", 0xFF8A7CFF,
                 new String[]{"Full", "Ambient", "Off"},
                 prefs.getInt(K_COMPANION, 0),
                 i -> prefs.edit().putInt(K_COMPANION, i).apply());
-        switchRow(g1, R.drawable.ic_mouse, "Mouse chase",
+        mouseRow = switchRow(gCat, R.drawable.ic_mouse, "Mouse chase",
                 "Jerry pops out while the cat sleeps", 0xFF5BC8AF,
-                K_MOUSE, true);
+                K_MOUSE, true, true);
+        updateMouseEnabled();
+
+        // ---------- Personalize ----------
+        LinearLayout g1 = section(col, "Personalize");
         switchRow(g1, R.drawable.ic_gauge, "Hero strip",
                 "RAM · CPU · storage · temperature", 0xFF6EA8FF,
-                K_HERO, true);
+                K_HERO, true, false);
         switchRow(g1, R.drawable.ic_clock, "Clock seconds",
                 "Show seconds in the top-bar clock", 0xFFF0B84A,
-                K_SECONDS, true);
+                K_SECONDS, true, false);
         switchRow(g1, R.drawable.ic_tag, "Always show app names",
                 "Labels under every tile, or only on focus", 0xFFE86A92,
-                K_LABELS, false);
+                K_LABELS, false, false);
 
+        // ---------- Status bar ----------
         LinearLayout g2 = section(col, "Status bar");
         switchRow(g2, R.drawable.ic_cloud, "Weather chip",
                 "Weather + AQI in the top bar", 0xFF5BC8AF,
-                K_WEATHER, true);
+                K_WEATHER, true, false);
         switchRow(g2, R.drawable.ic_wifi, "Wi-Fi chip",
                 "Network status in the top bar", 0xFF6EA8FF,
-                K_WIFI, true);
+                K_WIFI, true, false);
 
+        // ---------- System ----------
+        LinearLayout g3 = section(col, "System");
+        actionRow(g3, R.drawable.ic_bolt, "Optimize memory",
+                "Clear cached background apps", 0xFFF0B84A);
+        infoRow(g3, R.drawable.ic_info, "About this TV", 0xFF7B86A2,
+                Build.MODEL + " · Android " + Build.VERSION.RELEASE);
+
+        // footer hint
         TextView hint = new TextView(this);
         hint.setText("OK toggles · D-Pad ◀ ▶ adjusts · Back exits");
         hint.setTextSize(12f);
         hint.setTextColor(DIM);
+        hint.setGravity(Gravity.CENTER_HORIZONTAL);
         LinearLayout.LayoutParams hlp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT);
-        hlp.topMargin = (int) (18 * d);
+        hlp.topMargin = (int) (16 * d);
         col.addView(hint, hlp);
 
-        // ================= right — live preview + system =================
-        ScrollView rsv = new ScrollView(this);
-        rsv.setVerticalScrollBarEnabled(false);
-        rsv.setOverScrollMode(View.OVER_SCROLL_NEVER);
-        root.addView(rsv, new LinearLayout.LayoutParams(
-                0, LinearLayout.LayoutParams.MATCH_PARENT, 0.95f));
-
-        LinearLayout right = new LinearLayout(this);
-        right.setOrientation(LinearLayout.VERTICAL);
-        right.setClipChildren(false);
-        rsv.addView(right, new ScrollView.LayoutParams(
-                ScrollView.LayoutParams.MATCH_PARENT,
-                ScrollView.LayoutParams.WRAP_CONTENT));
-
-        TextView pvH = new TextView(this);
-        pvH.setText("LIVE PREVIEW");
-        pvH.setTextSize(12f);
-        pvH.setTextColor(DIM);
-        pvH.setLetterSpacing(0.14f);
-        pvH.setPadding((int) (12 * d), 0, 0, (int) (10 * d));
-        LinearLayout.LayoutParams pvHp = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT);
-        pvHp.topMargin = (int) (36 * d);
-        right.addView(pvH, pvHp);
-
-        right.addView(previewMock(), new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, (int) (225 * d)));
-        right.addView(systemCard());
-
-        // entrance — columns glide in from opposite sides
-        animateIn(col, -30 * d, 0);
-        animateIn(right, 30 * d, 90);
-
+        // staggered entrance — sections rise and fade
+        int i = 0;
+        for (int k = 0; k < col.getChildCount(); k++) {
+            View v = col.getChildAt(k);
+            v.setAlpha(0f);
+            v.setTranslationY(18 * d);
+            v.animate().alpha(1f).translationY(0)
+                    .setStartDelay(60 + 45L * i++)
+                    .setDuration(260)
+                    .setInterpolator(new DecelerateInterpolator(1.6f))
+                    .start();
+        }
         if (firstFocusable != null)
             firstFocusable.post(() -> firstFocusable.requestFocus());
     }
 
-    private void animateIn(View v, float dx, long delay) {
-        v.setAlpha(0f);
-        v.setTranslationX(dx);
-        v.animate().alpha(1f).translationX(0)
-                .setStartDelay(delay).setDuration(340)
-                .setInterpolator(new DecelerateInterpolator(1.6f))
-                .start();
+    /** Mouse chase only makes sense while the cat exists. */
+    private void updateMouseEnabled() {
+        if (mouseRow == null) return;
+        boolean catOn = prefs.getInt(K_COMPANION, 0) != 2;
+        float a = catOn ? 1f : 0.38f;
+        mouseRow.setAlpha(a);
+        mouseRow.setFocusable(catOn);
+        mouseRow.setClickable(catOn);
     }
 
-    // ================= live preview mock =================
-
-    private FrameLayout previewMock() {
-        FrameLayout mock = new FrameLayout(this);
-        GradientDrawable bg = new GradientDrawable(
-                GradientDrawable.Orientation.TOP_BOTTOM,
-                new int[]{0xFF0B0D14, 0xFF05060B});
-        bg.setCornerRadius(20 * d);
-        bg.setStroke((int) d, 0x20FFFFFF);
-        mock.setBackground(bg);
-        mock.setClipChildren(false);
-
-        int pad = (int) (14 * d);
-
-        // mini hero strip — one slim pill
-        pvHero = new View(this);
-        GradientDrawable hb = new GradientDrawable();
-        hb.setColor(0x1FFFFFFF);
-        hb.setCornerRadius(8 * d);
-        pvHero.setBackground(hb);
-        FrameLayout.LayoutParams hp = new FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT, (int) (16 * d));
-        hp.topMargin = pad;
-        hp.leftMargin = pad; hp.rightMargin = pad;
-        mock.addView(pvHero, hp);
-
-        // mini top-bar chips
-        LinearLayout chips = new LinearLayout(this);
-        chips.setOrientation(LinearLayout.HORIZONTAL);
-        pvWeather = miniChip(chips, 0xFF5BC8AF);
-        pvWifi = miniChip(chips, 0xFF6EA8FF);
-        FrameLayout.LayoutParams chp = new FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.WRAP_CONTENT,
-                FrameLayout.LayoutParams.WRAP_CONTENT,
-                Gravity.TOP | Gravity.RIGHT);
-        chp.topMargin = pad + (int) (24 * d);
-        chp.rightMargin = pad;
-        mock.addView(chips, chp);
-
-        // mini tile grid — two rows of glass squares + label bars
-        LinearLayout grid = new LinearLayout(this);
-        grid.setOrientation(LinearLayout.VERTICAL);
-        grid.setGravity(Gravity.CENTER_HORIZONTAL);
-        for (int r = 0; r < 2; r++) {
-            LinearLayout rowTiles = new LinearLayout(this);
-            rowTiles.setGravity(Gravity.CENTER_HORIZONTAL);
-            for (int i = 0; i < 5; i++) {
-                LinearLayout cell = new LinearLayout(this);
-                cell.setOrientation(LinearLayout.VERTICAL);
-                cell.setGravity(Gravity.CENTER_HORIZONTAL);
-                View t = new View(this);
-                GradientDrawable tb = new GradientDrawable(
-                        GradientDrawable.Orientation.TL_BR,
-                        new int[]{0x2EFFFFFF, 0x10FFFFFF});
-                tb.setCornerRadius(6 * d);
-                tb.setStroke((int) d, 0x22FFFFFF);
-                t.setBackground(tb);
-                cell.addView(t, new LinearLayout.LayoutParams(
-                        (int) (34 * d), (int) (34 * d)));
-                if (r == 0 && i < 4) {
-                    View lab = new View(this);
-                    pvLabelBars.add(lab);
-                    lab.setBackgroundColor(0x22FFFFFF);
-                    LinearLayout.LayoutParams ll =
-                            new LinearLayout.LayoutParams(
-                                    (int) (26 * d), (int) (3 * d));
-                    ll.topMargin = (int) (5 * d);
-                    cell.addView(lab, ll);
-                }
-                rowTiles.addView(cell);
-                LinearLayout.LayoutParams cl =
-                        (LinearLayout.LayoutParams) cell.getLayoutParams();
-                cl.leftMargin = cl.rightMargin = (int) (7 * d);
-            }
-            grid.addView(rowTiles);
-            LinearLayout.LayoutParams rp =
-                    (LinearLayout.LayoutParams) rowTiles.getLayoutParams();
-            if (r == 1) rp.topMargin = (int) (10 * d);
-        }
-        FrameLayout.LayoutParams gp = new FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.WRAP_CONTENT,
-                FrameLayout.LayoutParams.WRAP_CONTENT,
-                Gravity.CENTER);
-        gp.topMargin = (int) (6 * d);
-        mock.addView(grid, gp);
-
-        // mini ground strip
-        View ground = new View(this);
-        GradientDrawable gb = new GradientDrawable(
-                GradientDrawable.Orientation.TOP_BOTTOM,
-                new int[]{0xFF3E8C60, 0xFF2E6B4C});
-        ground.setBackground(gb);
-        FrameLayout.LayoutParams gr = new FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT, (int) (14 * d),
-                Gravity.BOTTOM);
-        mock.addView(ground, gr);
-
-        // mouse hole + mouse dot
-        pvHole = new View(this);
-        GradientDrawable hole = new GradientDrawable();
-        hole.setShape(GradientDrawable.OVAL);
-        hole.setColor(0xFF04060C);
-        pvHole.setBackground(hole);
-        FrameLayout.LayoutParams hlp = new FrameLayout.LayoutParams(
-                (int) (18 * d), (int) (9 * d), Gravity.BOTTOM | Gravity.LEFT);
-        hlp.leftMargin = (int) (70 * d);
-        hlp.bottomMargin = (int) (12 * d);
-        mock.addView(pvHole, hlp);
-
-        pvMouse = new View(this);
-        GradientDrawable md = new GradientDrawable();
-        md.setShape(GradientDrawable.OVAL);
-        md.setColor(0xFFB98A63);
-        pvMouse.setBackground(md);
-        FrameLayout.LayoutParams mp = new FrameLayout.LayoutParams(
-                (int) (7 * d), (int) (7 * d), Gravity.BOTTOM | Gravity.LEFT);
-        mp.leftMargin = (int) (76 * d);
-        mp.bottomMargin = (int) (17 * d);
-        mock.addView(pvMouse, mp);
-
-        // the real cat, scaled down, living on the mini ground
-        pvCat = new BuddyView(this);
-        FrameLayout.LayoutParams cp = new FrameLayout.LayoutParams(
-                (int) (130 * d), (int) (78 * d),
-                Gravity.BOTTOM | Gravity.RIGHT);
-        cp.rightMargin = (int) (60 * d);
-        cp.bottomMargin = (int) (8 * d);
-        mock.addView(pvCat, cp);
-
-        refreshPreview();
-        return mock;
-    }
-
-    private View miniChip(LinearLayout parent, int tint) {
-        View c = new View(this);
-        GradientDrawable b = new GradientDrawable();
-        b.setColor(0x33000000 | (tint & 0x00FFFFFF));
-        b.setCornerRadius(7 * d);
-        c.setBackground(b);
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                (int) (24 * d), (int) (13 * d));
-        lp.leftMargin = (int) (5 * d);
-        parent.addView(c, lp);
-        return c;
-    }
-
-    /** Push current prefs into the live preview. */
-    private void refreshPreview() {
-        if (pvHero == null) return;
-        pvHero.setVisibility(prefs.getBoolean(K_HERO, true)
-                ? View.VISIBLE : View.GONE);
-        pvWeather.setVisibility(prefs.getBoolean(K_WEATHER, true)
-                ? View.VISIBLE : View.GONE);
-        pvWifi.setVisibility(prefs.getBoolean(K_WIFI, true)
-                ? View.VISIBLE : View.GONE);
-        for (View lab : pvLabelBars)
-            lab.setVisibility(prefs.getBoolean(K_LABELS, false)
-                    ? View.VISIBLE : View.GONE);
-        boolean mouse = prefs.getBoolean(K_MOUSE, true);
-        pvMouse.setVisibility(mouse ? View.VISIBLE : View.GONE);
-        pvHole.setVisibility(mouse ? View.VISIBLE : View.GONE);
-        int mode = prefs.getInt(K_COMPANION, 0);
-        pvCat.setMode(mode);
-        pvCat.setVisibility(mode == 2 ? View.GONE : View.VISIBLE);
-        pvCat.animate().alpha(mode == 1 ? 0.45f : 1f)
-                .setDuration(200).start();
-    }
-
-    // ================= cards & rows =================
+    // ---------- group card ----------
 
     private LinearLayout section(LinearLayout col, String title) {
         TextView h = new TextView(this);
         h.setText(title.toUpperCase(Locale.US));
         h.setTextSize(12f);
         h.setTextColor(DIM);
-        h.setLetterSpacing(0.14f);
-        h.setPadding((int) (12 * d), 0, 0, (int) (10 * d));
+        h.setLetterSpacing(0.12f);
+        h.setPadding((int) (18 * d), 0, 0, (int) (8 * d));
         LinearLayout.LayoutParams hp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT);
-        hp.topMargin = (int) (24 * d);
+        hp.topMargin = (int) (26 * d);
         col.addView(h, hp);
 
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.VERTICAL);
         card.setClipChildren(false);
-        GradientDrawable bg = new GradientDrawable(
-                GradientDrawable.Orientation.TL_BR,
-                new int[]{0x14FFFFFF, 0x09FFFFFF});
-        bg.setCornerRadius(22 * d);
-        bg.setStroke((int) d, 0x18FFFFFF);
+        GradientDrawable bg = new GradientDrawable();
+        bg.setColor(0xFF15171F);                    // iOS grouped-cell grey
+        bg.setCornerRadius(16 * d);
         card.setBackground(bg);
         col.addView(card, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -398,14 +190,18 @@ public final class LauncherSettingsActivity extends Activity {
 
     private void hairline(LinearLayout card) {
         View line = new View(this);
-        line.setBackgroundColor(0x0CFFFFFF);
+        line.setBackgroundColor(0x14FFFFFF);        // iOS separator
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, 1);
-        lp.leftMargin = (int) (78 * d);
-        lp.rightMargin = (int) (20 * d);
+        lp.leftMargin = (int) (74 * d);             // align with row labels
+        lp.rightMargin = (int) (18 * d);
         card.addView(line, lp);
     }
 
+    // ---------- row scaffold ----------
+
+    /** Icon tile + label/description; returns the row for the caller
+     *  to append a right-edge control. */
     private LinearLayout rowBase(LinearLayout card, int icon,
                                  String label, String desc, int tint,
                                  boolean focusable) {
@@ -414,32 +210,32 @@ public final class LauncherSettingsActivity extends Activity {
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setPadding((int) (18 * d), (int) (15 * d),
-                (int) (18 * d), (int) (15 * d));
+        row.setPadding((int) (18 * d), (int) (14 * d),
+                (int) (16 * d), (int) (14 * d));
         row.setFocusable(focusable);
         row.setClickable(focusable);
         row.setClipChildren(false);
         GradientDrawable bg = new GradientDrawable();
-        bg.setCornerRadius(16 * d);
+        bg.setCornerRadius(14 * d);
         bg.setColor(0x00000000);
         row.setBackground(bg);
 
-        // tinted icon tile
+        // tinted icon tile — iOS coloured setting icons
         FrameLayout tile = new FrameLayout(this);
         GradientDrawable tb = new GradientDrawable(
                 GradientDrawable.Orientation.TL_BR,
-                new int[]{0x40000000 | (tint & 0x00FFFFFF),
-                        0x1A000000 | (tint & 0x00FFFFFF)});
-        tb.setCornerRadius(12 * d);
+                new int[]{0x3D000000 | (tint & 0x00FFFFFF),
+                        0x22000000 | (tint & 0x00FFFFFF)});
+        tb.setCornerRadius(11 * d);
         tile.setBackground(tb);
         ImageView ic = new ImageView(this);
         ic.setImageResource(icon);
-        ic.setColorFilter(0xCC000000 | (tint & 0x00FFFFFF));
+        ic.setColorFilter(tint);
         ic.setTag("icon");
         tile.addView(ic, new FrameLayout.LayoutParams(
-                (int) (20 * d), (int) (20 * d), Gravity.CENTER));
+                (int) (19 * d), (int) (19 * d), Gravity.CENTER));
         LinearLayout.LayoutParams tp = new LinearLayout.LayoutParams(
-                (int) (40 * d), (int) (40 * d));
+                (int) (38 * d), (int) (38 * d));
         tp.setMarginEnd((int) (16 * d));
         row.addView(tile, tp);
 
@@ -456,7 +252,7 @@ public final class LauncherSettingsActivity extends Activity {
             sub.setText(desc);
             sub.setTextSize(12.5f);
             sub.setTextColor(DIM);
-            sub.setPadding(0, (int) (3 * d), 0, 0);
+            sub.setPadding(0, (int) (2 * d), 0, 0);
             texts.addView(sub);
         }
         row.addView(texts, new LinearLayout.LayoutParams(
@@ -464,14 +260,11 @@ public final class LauncherSettingsActivity extends Activity {
 
         if (focusable) {
             row.setOnFocusChangeListener((v, has) -> {
-                bg.setColor(has ? 0x1EFFFFFF : 0x00000000);
-                bg.setStroke(has ? (int) d : 0, 0x406EA8FF);
+                bg.setColor(has ? 0x1FFFFFFF : 0x00000000);
                 name.setTextColor(has ? 0xFFFFFFFF : TXT);
-                ic.setColorFilter(has ? tint
-                        : 0xCC000000 | (tint & 0x00FFFFFF));
-                v.animate().scaleX(has ? 1.015f : 1f).scaleY(has ? 1.015f : 1f)
+                v.animate().scaleX(has ? 1.012f : 1f).scaleY(has ? 1.012f : 1f)
                         .setInterpolator(new DecelerateInterpolator(1.8f))
-                        .setDuration(150).start();
+                        .setDuration(140).start();
             });
             if (firstFocusable == null) firstFocusable = row;
         }
@@ -481,8 +274,10 @@ public final class LauncherSettingsActivity extends Activity {
 
     // ---------- controls ----------
 
-    private void switchRow(LinearLayout card, int icon, String label,
-                           String desc, int tint, String key, boolean def) {
+    /** @param refMouse when true this is the companion sub-row we can disable */
+    private LinearLayout switchRow(LinearLayout card, int icon, String label,
+                                   String desc, int tint, String key,
+                                   boolean def, boolean refMouse) {
         LinearLayout row = rowBase(card, icon, label, desc, tint, true);
         FrameLayout sw = makeSwitch(prefs.getBoolean(key, def));
         row.addView(sw, new LinearLayout.LayoutParams(
@@ -491,17 +286,17 @@ public final class LauncherSettingsActivity extends Activity {
             boolean on = !prefs.getBoolean(key, def);
             prefs.edit().putBoolean(key, on).apply();
             animateSwitch(sw, on);
-            refreshPreview();
         });
+        if (refMouse) mouseSw = sw;
+        return row;
     }
 
     private FrameLayout makeSwitch(boolean on) {
         FrameLayout sw = new FrameLayout(this);
         GradientDrawable track = new GradientDrawable();
         track.setCornerRadius(30 * d);
-        track.setColor(on ? ACCENT : 0x2AFFFFFF);
+        track.setColor(on ? GREEN : 0x33FFFFFF);
         sw.setBackground(track);
-        sw.setTag("switch");
 
         View knob = new View(this);
         GradientDrawable kb = new GradientDrawable();
@@ -526,7 +321,7 @@ public final class LauncherSettingsActivity extends Activity {
                     .start();
         GradientDrawable track = (GradientDrawable) sw.getBackground();
         ValueAnimator c = ValueAnimator.ofArgb(
-                on ? 0x2AFFFFFF : ACCENT, on ? ACCENT : 0x2AFFFFFF);
+                on ? 0x33FFFFFF : GREEN, on ? GREEN : 0x33FFFFFF);
         c.setDuration(180);
         c.addUpdateListener(a -> track.setColor((int) a.getAnimatedValue()));
         c.start();
@@ -542,8 +337,8 @@ public final class LauncherSettingsActivity extends Activity {
         seg.setPadding((int) (3 * d), (int) (3 * d),
                 (int) (3 * d), (int) (3 * d));
         GradientDrawable sb = new GradientDrawable();
-        sb.setColor(0x10FFFFFF);
-        sb.setCornerRadius(18 * d);
+        sb.setColor(0x26FFFFFF);                    // iOS segment track
+        sb.setCornerRadius(17 * d);
         seg.setBackground(sb);
 
         TextView[] cells = new TextView[options.length];
@@ -552,10 +347,10 @@ public final class LauncherSettingsActivity extends Activity {
             t.setText(options[i]);
             t.setTextSize(12.5f);
             t.setGravity(Gravity.CENTER);
-            t.setPadding((int) (12 * d), (int) (6 * d),
-                    (int) (12 * d), (int) (6 * d));
+            t.setPadding((int) (13 * d), (int) (6 * d),
+                    (int) (13 * d), (int) (6 * d));
             GradientDrawable tb = new GradientDrawable();
-            tb.setCornerRadius(15 * d);
+            tb.setCornerRadius(14 * d);
             t.setBackground(tb);
             seg.addView(t);
             cells[i] = t;
@@ -567,8 +362,9 @@ public final class LauncherSettingsActivity extends Activity {
         Runnable style = () -> {
             for (int i = 0; i < cells.length; i++) {
                 GradientDrawable tb = (GradientDrawable) cells[i].getBackground();
-                tb.setColor(i == sel[0] ? ACCENT : 0x00000000);
-                cells[i].setTextColor(i == sel[0] ? 0xFF0B1220 : DIM);
+                // iOS: light pill on dark track
+                tb.setColor(i == sel[0] ? 0xFFE8EDF8 : 0x00000000);
+                cells[i].setTextColor(i == sel[0] ? 0xFF14181F : DIM);
                 cells[i].setTypeface(null, i == sel[0]
                         ? android.graphics.Typeface.BOLD
                         : android.graphics.Typeface.NORMAL);
@@ -581,66 +377,32 @@ public final class LauncherSettingsActivity extends Activity {
             sel[0] = (sel[0] + 1) % options.length;
             pick.accept(sel[0]);
             style.run();
-            refreshPreview();
+            updateMouseEnabled();
         });
         row.setOnKeyListener((v, code, ev) -> {
             if (ev.getAction() != KeyEvent.ACTION_DOWN) return false;
             if (code == KeyEvent.KEYCODE_DPAD_LEFT && sel[0] > 0) {
-                sel[0]--; pick.accept(sel[0]); style.run(); refreshPreview();
+                sel[0]--; pick.accept(sel[0]); style.run(); updateMouseEnabled();
                 return true;
             }
             if (code == KeyEvent.KEYCODE_DPAD_RIGHT
                     && sel[0] < options.length - 1) {
-                sel[0]++; pick.accept(sel[0]); style.run(); refreshPreview();
+                sel[0]++; pick.accept(sel[0]); style.run(); updateMouseEnabled();
                 return true;
             }
             return false;
         });
     }
 
-    // ---------- system card ----------
-
-    private LinearLayout systemCard() {
-        LinearLayout wrap = new LinearLayout(this);
-        wrap.setOrientation(LinearLayout.VERTICAL);
-
-        TextView h = new TextView(this);
-        h.setText("SYSTEM");
-        h.setTextSize(12f);
-        h.setTextColor(DIM);
-        h.setLetterSpacing(0.14f);
-        h.setPadding((int) (12 * d), 0, 0, (int) (10 * d));
-        LinearLayout.LayoutParams hp = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT);
-        hp.topMargin = (int) (16 * d);
-        wrap.addView(h, hp);
-
-        LinearLayout card = new LinearLayout(this);
-        card.setOrientation(LinearLayout.VERTICAL);
-        card.setClipChildren(false);
-        GradientDrawable bg = new GradientDrawable(
-                GradientDrawable.Orientation.TL_BR,
-                new int[]{0x14FFFFFF, 0x09FFFFFF});
-        bg.setCornerRadius(22 * d);
-        bg.setStroke((int) d, 0x18FFFFFF);
-        card.setBackground(bg);
-        wrap.addView(card);
-
-        LinearLayout row = rowBase(card, R.drawable.ic_bolt,
-                "Optimize memory", "Clear cached background apps",
-                0xFFF0B84A, true);
+    private void actionRow(LinearLayout card, int icon, String label,
+                           String desc, int tint) {
+        LinearLayout row = rowBase(card, icon, label, desc, tint, true);
         TextView pill = new TextView(this);
         pill.setText("Optimize");
-        pill.setTextSize(13f);
+        pill.setTextSize(13.5f);
         pill.setTextColor(ACCENT);
-        pill.setPadding((int) (18 * d), (int) (8 * d),
-                (int) (18 * d), (int) (8 * d));
-        GradientDrawable pb = new GradientDrawable();
-        pb.setColor(0x226EA8FF);
-        pb.setCornerRadius(20 * d);
-        pill.setBackground(pb);
         row.addView(pill);
+
         row.setOnClickListener(v -> {
             pill.setText("Running…");
             pill.setAlpha(0.55f);
@@ -655,14 +417,15 @@ public final class LauncherSettingsActivity extends Activity {
                         Toast.LENGTH_SHORT).show();
             });
         });
+    }
 
-        LinearLayout about = rowBase(card, R.drawable.ic_info,
-                "About this TV", null, 0xFF7B86A2, false);
+    private void infoRow(LinearLayout card, int icon,
+                         String label, int tint, String value) {
+        LinearLayout row = rowBase(card, icon, label, null, tint, false);
         TextView v = new TextView(this);
-        v.setText(Build.MODEL + " · Android " + Build.VERSION.RELEASE);
+        v.setText(value);
         v.setTextSize(13.5f);
         v.setTextColor(DIM);
-        about.addView(v);
-        return wrap;
+        row.addView(v);
     }
 }

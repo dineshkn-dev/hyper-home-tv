@@ -67,12 +67,17 @@ public final class LauncherSettingsActivity extends Activity {
         d = getResources().getDisplayMetrics().density;
         buildCats();
 
+        FrameLayout frame = new FrameLayout(this);
+        setContentView(frame);
+
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.HORIZONTAL);
         root.setClipChildren(false);
         root.setPadding((int) (56 * d), (int) (40 * d),
                 (int) (56 * d), (int) (40 * d));
-        setContentView(root);
+        frame.addView(root, new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT));
 
         // ================= sidebar =================
         LinearLayout rail = new LinearLayout(this);
@@ -133,6 +138,20 @@ public final class LauncherSettingsActivity extends Activity {
         sv.addView(pane, new ScrollView.LayoutParams(
                 ScrollView.LayoutParams.MATCH_PARENT,
                 ScrollView.LayoutParams.WRAP_CONTENT));
+
+        // quiet version tag, bottom-right — the only place it shows
+        TextView ver = new TextView(this);
+        ver.setText("v" + versionName());
+        ver.setTextSize(11.5f);
+        ver.setTextColor(0xFF4A5468);
+        ver.setLetterSpacing(0.12f);
+        FrameLayout.LayoutParams vp = new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                Gravity.BOTTOM | Gravity.RIGHT);
+        vp.rightMargin = (int) (30 * d);
+        vp.bottomMargin = (int) (22 * d);
+        frame.addView(ver, vp);
 
         // sidebar entrance, then focus the first item
         int i = 0;
@@ -335,6 +354,13 @@ public final class LauncherSettingsActivity extends Activity {
                     .setInterpolator(new DecelerateInterpolator(1.6f))
                     .start();
         }
+    }
+
+    private String versionName() {
+        try {
+            return getPackageManager()
+                    .getPackageInfo(getPackageName(), 0).versionName;
+        } catch (Exception e) { return "1.0"; }
     }
 
     /** Mouse chase only makes sense while the cat exists. */

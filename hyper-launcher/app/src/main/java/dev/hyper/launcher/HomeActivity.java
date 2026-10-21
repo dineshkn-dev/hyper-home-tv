@@ -39,6 +39,7 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -630,10 +631,12 @@ public final class HomeActivity extends Activity {
         LinearLayout menu = new LinearLayout(this);
         menu.setOrientation(LinearLayout.VERTICAL);
 
-        addMenuItem(menu, d, R.drawable.ic_move, "Move", () -> {
-            closeMenu();
-            enterMove(pos);
-        });
+        // dragging only makes sense under manual ordering
+        if (prefs().getInt(LauncherSettingsActivity.K_SORT, 2) == 2)
+            addMenuItem(menu, d, R.drawable.ic_move, "Move", () -> {
+                closeMenu();
+                enterMove(pos);
+            });
         if (app.userInstalled) {
             addMenuItem(menu, d, R.drawable.ic_delete, "Uninstall", () -> {
                 closeMenu();
@@ -1045,6 +1048,26 @@ public final class HomeActivity extends Activity {
 
     private void launch(AppEntry app) {
         try { startActivity(app.intent); } catch (Exception ignored) {}
+        Map<String, Integer> uses = loadUses();
+        Integer n = uses.get(app.pkg);
+        uses.put(app.pkg, n == null ? 1 : n + 1);
+        StringBuilder sb = new StringBuilder();
+        for (Map.Entry<String, Integer> e : uses.entrySet())
+            sb.append(e.getKey()).append('=').append(e.getValue()).append('\n');
+        prefs().edit().putString("uses", sb.toString()).apply();
+    }
+
+    private Map<String, Integer> loadUses() {
+        Map<String, Integer> m = new HashMap<>();
+        for (String line : prefs().getString("uses", "").split("\n")) {
+            int i = line.lastIndexOf('=');
+            if (i < 1) continue;
+            try {
+                m.put(line.substring(0, i),
+                        Integer.parseInt(line.substring(i + 1).trim()));
+            } catch (NumberFormatException ignored) {}
+        }
+        return m;
     }
 
     private void openAppInfo(String pkg) {
@@ -1072,7 +1095,28 @@ public final class HomeActivity extends Activity {
 
         List<AppEntry> list = new ArrayList<>(found.values());
         list.removeIf(a -> a.pkg.equals(getPackageName()));
-        // your apps first, then everything else — both alphabetical
+
+        int sort = prefs().getInt(LauncherSettingsActivity.K_SORT, 2);
+        if (sort == 0) {            // A–Z
+            list.sort((a, b) -> String.CASE_INSENSITIVE_ORDER.compare(
+                    a.label.toString(), b.label.toString()));
+            return list;
+        }
+        if (sort == 1) {            // most used — launch counts; ties keep
+                                    // user apps first, then alphabetical
+            Map<String, Integer> uses = loadUses();
+            list.sort((a, b) -> {
+                int ua = uses.getOrDefault(a.pkg, 0);
+                int ub = uses.getOrDefault(b.pkg, 0);
+                if (ua != ub) return ub - ua;
+                if (a.userInstalled != b.userInstalled)
+                    return a.userInstalled ? -1 : 1;
+                return String.CASE_INSENSITIVE_ORDER.compare(
+                        a.label.toString(), b.label.toString());
+            });
+            return list;
+        }
+        // manual — your apps first alphabetically, then the saved drag order
         list.sort((a, b) -> a.userInstalled != b.userInstalled
                 ? (a.userInstalled ? -1 : 1)
                 : String.CASE_INSENSITIVE_ORDER.compare(

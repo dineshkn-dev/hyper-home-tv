@@ -38,6 +38,7 @@ public final class LauncherSettingsActivity extends Activity {
     static final String K_LABELS = "labels";         // true = always show names
     static final String K_WEATHER = "weather";
     static final String K_WIFI = "wifi";
+    static final String K_SORT = "sort";             // 0 a-z, 1 most used, 2 manual
 
     private static final int TXT    = 0xFFEDF1FA;
     private static final int DIM    = 0xFF7B86A2;
@@ -297,6 +298,11 @@ public final class LauncherSettingsActivity extends Activity {
                     K_MOUSE, true, true);
             updateMouseEnabled();
         } else if (c.label.equals("Personalize")) {
+            segmentRow(card, R.drawable.ic_sort, "App order",
+                    "How tiles are arranged", 0xFFE86A92,
+                    new String[]{"A–Z", "Most used", "Manual"},
+                    prefs.getInt(K_SORT, 2),
+                    i -> prefs.edit().putInt(K_SORT, i).apply());
             switchRow(card, R.drawable.ic_gauge, "Hero strip",
                     "RAM · CPU · storage · temperature", 0xFF6EA8FF,
                     K_HERO, true, false);

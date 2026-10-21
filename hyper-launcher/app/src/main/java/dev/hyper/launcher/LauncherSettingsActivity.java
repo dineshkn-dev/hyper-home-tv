@@ -95,7 +95,19 @@ public final class LauncherSettingsActivity extends Activity {
         sub.setPadding(0, (int) (3 * d), 0, (int) (30 * d));
         rail.addView(sub);
 
-        for (Cat c : cats) rail.addView(railItem(c));
+        // sticky header stays; only the category list can scroll
+        ScrollView rsv = new ScrollView(this);
+        rsv.setVerticalScrollBarEnabled(false);
+        rsv.setOverScrollMode(View.OVER_SCROLL_NEVER);
+        rsv.setClipToPadding(false);
+        LinearLayout.LayoutParams rsvp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, 0, 1);
+        rail.addView(rsv, rsvp);
+        LinearLayout railList = new LinearLayout(this);
+        railList.setOrientation(LinearLayout.VERTICAL);
+        railList.setClipChildren(false);
+        rsv.addView(railList);
+        for (Cat c : cats) railList.addView(railItem(c));
 
         TextView hint = new TextView(this);
         hint.setText("OK / ▶ enters pane · ◀ returns · Back exits");
@@ -104,7 +116,7 @@ public final class LauncherSettingsActivity extends Activity {
         LinearLayout.LayoutParams hlp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT);
-        hlp.topMargin = (int) (26 * d);
+        hlp.topMargin = (int) (20 * d);
         rail.addView(hint, hlp);
 
         // ================= right pane =================

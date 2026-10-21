@@ -71,7 +71,7 @@ public final class HeroStrip extends LinearLayout {
     // ---------- layout ----------
 
     private static final class Chip {
-        LinearLayout box;
+        LinearLayout box, head;
         TextView value, sub;
         View fill, gap;
     }
@@ -101,51 +101,62 @@ public final class HeroStrip extends LinearLayout {
         ImageView bolt = new ImageView(getContext());
         bolt.setImageResource(R.drawable.ic_bolt);
         bolt.setColorFilter(BLUE);
-        LayoutParams bl = new LayoutParams((int) (9 * d), (int) (9 * d));
+        LayoutParams bl = new LayoutParams((int) (8 * d), (int) (8 * d));
         bl.setMarginStart((int) (4 * d));
-        ((LinearLayout) ram.box.getChildAt(0)).addView(bolt, bl);
+        ram.head.addView(bolt, bl);
     }
 
-    /** vertical stat chip: icon+label, big value, sub line, mini bar */
+    /** compact stat chip: icon left, label + "value · sub" stacked right */
     private Chip addChip(int icon, String label, float d) {
         Chip c = new Chip();
         c.box = new LinearLayout(getContext());
-        c.box.setOrientation(VERTICAL);
-        c.box.setPadding((int) (12 * d), (int) (9 * d),
-                (int) (12 * d), (int) (8 * d));
+        c.box.setOrientation(HORIZONTAL);
+        c.box.setGravity(Gravity.CENTER_VERTICAL);
+        c.box.setPadding((int) (10 * d), (int) (5 * d),
+                (int) (10 * d), (int) (5 * d));
         setBg(c.box, 0x0FFFFFFF, d);
 
-        LinearLayout head = new LinearLayout(getContext());
-        head.setGravity(Gravity.CENTER_VERTICAL);
         ImageView ic = new ImageView(getContext());
         ic.setImageResource(icon);
         ic.setColorFilter(DIM);
-        LayoutParams il = new LayoutParams((int) (13 * d), (int) (13 * d));
-        il.setMarginEnd((int) (6 * d));
-        head.addView(ic, il);
+        LayoutParams il = new LayoutParams((int) (15 * d), (int) (15 * d));
+        il.setMarginEnd((int) (8 * d));
+        c.box.addView(ic, il);
+
+        LinearLayout col = new LinearLayout(getContext());
+        col.setOrientation(VERTICAL);
+
+        c.head = new LinearLayout(getContext());
+        c.head.setGravity(Gravity.CENTER_VERTICAL);
         TextView lb = new TextView(getContext());
         lb.setText(label);
-        lb.setTextSize(9.5f);
+        lb.setTextSize(8.5f);
         lb.setLetterSpacing(0.08f);
         lb.setTextColor(DIM);
         lb.setSingleLine(true);
-        head.addView(lb);
-        c.box.addView(head);
+        c.head.addView(lb);
+        col.addView(c.head);
 
+        LinearLayout vals = new LinearLayout(getContext());
         c.value = new TextView(getContext());
-        c.value.setTextSize(16f);
+        c.value.setTextSize(13f);
         c.value.setTextColor(TXT);
         c.value.setSingleLine(true);
-        c.box.addView(c.value);
-
+        c.value.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        vals.addView(c.value);
         c.sub = new TextView(getContext());
-        c.sub.setTextSize(10.5f);
+        c.sub.setTextSize(9f);
         c.sub.setTextColor(DIM);
         c.sub.setSingleLine(true);
+        c.sub.setEllipsize(android.text.TextUtils.TruncateAt.END);
         c.sub.setText(" ");
-        c.box.addView(c.sub);
+        LayoutParams sl = new LayoutParams(
+                LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
+        sl.setMarginStart((int) (4 * d));
+        vals.addView(c.sub, sl);
+        col.addView(vals);
 
-        // 3dp usage bar — fill + gap share the row via weights
+        // 2dp usage bar — fill + gap share the row via weights
         LinearLayout bar = new LinearLayout(getContext());
         bar.setOrientation(HORIZONTAL);
         GradientDrawable fb = new GradientDrawable();
@@ -158,15 +169,17 @@ public final class HeroStrip extends LinearLayout {
         gb.setColor(0x14FFFFFF);
         gb.setCornerRadius(2 * d);
         c.gap.setBackground(gb);
-        bar.addView(c.fill, new LayoutParams(0, (int) (3 * d), 0.5f));
-        bar.addView(c.gap, new LayoutParams(0, (int) (3 * d), 0.5f));
-        LayoutParams bl = new LayoutParams(
+        bar.addView(c.fill, new LayoutParams(0, (int) (2 * d), 0.5f));
+        bar.addView(c.gap, new LayoutParams(0, (int) (2 * d), 0.5f));
+        LayoutParams barLp = new LayoutParams(
                 LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT);
-        bl.topMargin = (int) (6 * d);
-        c.box.addView(bar, bl);
+        barLp.topMargin = (int) (4 * d);
+        col.addView(bar, barLp);
+
+        c.box.addView(col, new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1));
 
         LayoutParams lp = new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1);
-        lp.setMarginEnd((int) (10 * d));
+        lp.setMarginEnd((int) (8 * d));
         addView(c.box, lp);
         return c;
     }
@@ -197,8 +210,7 @@ public final class HeroStrip extends LinearLayout {
             am.getMemoryInfo(mi);
             float used = (float) (mi.totalMem - mi.availMem) / mi.totalMem;
             ram.value.setText(Math.round(used * 100) + "%");
-            ram.sub.setText(fmtBytes(mi.availMem) + " free of "
-                    + fmtBytes(mi.totalMem));
+            ram.sub.setText("· " + fmtBytes(mi.availMem) + " free");
             setBar(ram, used);
         } catch (Exception e) { ram.value.setText("—"); }
 
@@ -207,14 +219,15 @@ public final class HeroStrip extends LinearLayout {
         if (pct >= 0) cpu.value.setText("CPU " + pct + "%");
         else cpu.value.setText(mhz > 0
                 ? String.format(Locale.US, "%.2f GHz", mhz / 1000f) : "—");
-        cpu.sub.setText(Runtime.getRuntime().availableProcessors() + " cores");
+        cpu.sub.setText("· "
+                + Runtime.getRuntime().availableProcessors() + " cores");
         setBar(cpu, mhz > 0 ? mhz / (float) maxMhz() : 0f);
 
         try {
             StatFs sf = new StatFs(Environment.getDataDirectory().getPath());
             long total = sf.getTotalBytes(), free = sf.getAvailableBytes();
-            store.value.setText(fmtBytes(free) + " free");
-            store.sub.setText("of " + fmtBytes(total));
+            store.value.setText(fmtBytes(free));
+            store.sub.setText("· free of " + fmtBytes(total));
             setBar(store, (float) (total - free) / total);
         } catch (Exception e) { store.value.setText("—"); }
 
@@ -223,7 +236,7 @@ public final class HeroStrip extends LinearLayout {
         else {
             temp.box.setVisibility(VISIBLE);
             temp.value.setText(Math.round(t) + "°C");
-            temp.sub.setText(tempLabel);
+            temp.sub.setText("· " + tempLabel);
             setBar(temp, t / 90f);
         }
 
@@ -235,7 +248,7 @@ public final class HeroStrip extends LinearLayout {
                 : upMin >= 60
                         ? (upMin / 60) + "h " + (upMin % 60) + "m"
                         : upMin + "m");
-        up.sub.setText("since boot");
+        up.sub.setText("· since boot");
         setBar(up, 0f);
     }
 
@@ -250,10 +263,10 @@ public final class HeroStrip extends LinearLayout {
         String ip = ipAddr(ctx);
         if (mbps > 0) {
             net.value.setText(mbps + " Mbps");
-            net.sub.setText(ip != null ? ip : "Wi-Fi");
+            net.sub.setText("· Wi-Fi");
         } else if (ip != null) {
             net.value.setText(ip);
-            net.sub.setText("wired");
+            net.sub.setText("· wired");
         } else {
             net.value.setText("Offline");
             net.sub.setText(" ");
@@ -391,7 +404,7 @@ public final class HeroStrip extends LinearLayout {
     private void optimize() {
         if (optimizing) return;
         optimizing = true;
-        ram.sub.setText("sweeping…");
+        ram.sub.setText("· sweeping…");
         sweep(getContext(), freed -> {
             optimizing = false;
             Toast.makeText(getContext(),

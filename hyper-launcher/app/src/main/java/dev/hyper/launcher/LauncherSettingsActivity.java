@@ -165,6 +165,7 @@ public final class LauncherSettingsActivity extends Activity {
         it.setFocusable(true);
         it.setClickable(true);
         it.setTag(c);
+        it.setId(View.generateViewId());
 
         FrameLayout tile = new FrameLayout(this);
         GradientDrawable tb = new GradientDrawable(
@@ -302,11 +303,18 @@ public final class LauncherSettingsActivity extends Activity {
         pane.addView(card);
 
         // vertical focus stays inside the card — NO_ID is the default,
-        // so loop the edge rows onto themselves instead
+        // so loop the edge rows onto themselves instead; LEFT always
+        // returns to the ACTIVE sidebar item, not the nearest one
+        int railId = View.NO_ID;
+        for (View v : railItems)
+            if (v.getTag() == c) railId = v.getId();
         View first = null, last = null;
         for (int i = 0; i < card.getChildCount(); i++) {
             View v = card.getChildAt(i);
-            if (v.isFocusable()) { if (first == null) first = v; last = v; }
+            if (!v.isFocusable()) continue;
+            if (first == null) first = v;
+            last = v;
+            v.setNextFocusLeftId(railId);
         }
         if (first != null) {
             if (first.getId() == View.NO_ID) first.setId(View.generateViewId());

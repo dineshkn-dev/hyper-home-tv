@@ -301,6 +301,22 @@ public final class LauncherSettingsActivity extends Activity {
         }
         pane.addView(card);
 
+        // vertical focus stays inside the card — NO_ID is the default,
+        // so loop the edge rows onto themselves instead
+        View first = null, last = null;
+        for (int i = 0; i < card.getChildCount(); i++) {
+            View v = card.getChildAt(i);
+            if (v.isFocusable()) { if (first == null) first = v; last = v; }
+        }
+        if (first != null) {
+            if (first.getId() == View.NO_ID) first.setId(View.generateViewId());
+            first.setNextFocusUpId(first.getId());
+        }
+        if (last != null) {
+            if (last.getId() == View.NO_ID) last.setId(View.generateViewId());
+            last.setNextFocusDownId(last.getId());
+        }
+
         // rows slide in staggered
         for (int i = 0; i < card.getChildCount(); i++) {
             View v = card.getChildAt(i);

@@ -3,8 +3,8 @@ package dev.hyper.launcher;
 import android.app.ActivityManager;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
-import android.content.pm.ResolveInfo;
 import android.graphics.drawable.GradientDrawable;
 import android.net.ConnectivityManager;
 import android.net.LinkAddress;
@@ -429,30 +429,57 @@ public final class HeroStrip extends LinearLayout {
             ActivityManager.MemoryInfo before = new ActivityManager.MemoryInfo();
             try { am.getMemoryInfo(before); } catch (Exception ignored) { }
 
+            // Sweep every installed package — launchable-only queries miss
+            // the biggest memory holders (GMS, providers, keychain…).
             Set<String> pkgs = new HashSet<>();
             PackageManager pm = ctx.getPackageManager();
-            Intent[] queries = {
-                    new Intent(Intent.ACTION_MAIN)
-                            .addCategory(Intent.CATEGORY_LEANBACK_LAUNCHER),
-                    new Intent(Intent.ACTION_MAIN)
-                            .addCategory(Intent.CATEGORY_LAUNCHER)};
-            for (Intent in : queries) {
-                List<ResolveInfo> rs = Build.VERSION.SDK_INT >= 33
-                        ? pm.queryIntentActivities(in,
-                                PackageManager.ResolveInfoFlags.of(0))
-                        : pm.queryIntentActivities(in, 0);
-                for (ResolveInfo r : rs) pkgs.add(r.activityInfo.packageName);
-            }
+            List<PackageInfo> pis = Build.VERSION.SDK_INT >= 33
+                    ? pm.getInstalledPackages(PackageManager.PackageInfoFlags.of(0))
+                    : pm.getInstalledPackages(0);
+            for (PackageInfo pi : pis) pkgs.add(pi.packageName);
             pkgs.remove(ctx.getPackageName());
             for (String p : pkgs) {
                 try { am.killBackgroundProcesses(p); } catch (Exception ignored) { }
             }
 
-            SystemClock.sleep(700);
+            // killBackgroundProcesses is neutered for third-party apps on
+            // some firmware (silent no-op — calls succeed, nothing dies).
+            // Fallback that actually works: allocate native memory until the
+            // PSI stall thresholds trip and lmkd reaps cached processes,
+            // then release. We're foreground — cached apps die long before us.
+            // Skip entirely when memory is already plentiful.
+            if (before.availMem < before.totalMem * 3L / 4L) {
+                java.util.ArrayList<java.nio.ByteBuffer> chunks =
+                        new java.util.ArrayList<>();
+                try {
+                    ActivityManager.MemoryInfo mi = new ActivityManager.MemoryInfo();
+                    for (int i = 0; i < 12; i++) {              // ≤ 576 MB pressure
+                        am.getMemoryInfo(mi);
+                        if (mi.availMem < 96L * 1024 * 1024) break;
+                        java.nio.ByteBuffer b =
+                                java.nio.ByteBuffer.allocateDirect(48 << 20);
+                        for (int off = 0; off < b.capacity(); off += 4096)
+                            b.put(off, (byte) 1);               // commit every page
+                        chunks.add(b);
+                        SystemClock.sleep(50);
+                    }
+                    SystemClock.sleep(1200);                    // hold past PSI stall
+                } catch (Throwable ignored) { }
+
+                // Release fully: direct buffers only free when their Cleaner
+                // runs — clear refs, GC twice, let the kernel settle.
+                chunks.clear();
+                System.gc();
+                System.runFinalization();
+                System.gc();
+                SystemClock.sleep(1500);
+            }
             ActivityManager.MemoryInfo after = new ActivityManager.MemoryInfo();
             try { am.getMemoryInfo(after); } catch (Exception ignored) { }
             final long freed =
                     Math.max(0, after.availMem - before.availMem) / (1024 * 1024);
+            android.util.Log.i("HeroStrip", "sweep done: freed=" + freed
+                    + "MB after=" + after.availMem / 1048576 + "MB");
             h.post(() -> done.accept(freed));
         }, "optimize").start();
     }

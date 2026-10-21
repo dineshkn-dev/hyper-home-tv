@@ -13,6 +13,9 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <!-- Lets the Optimize button sweep cached background apps (normal permission) -->
     <uses-permission android:name="android.permission.KILL_BACKGROUND_PROCESSES" />
+    <!-- Lets the Optimize sweep enumerate ALL packages — most cached memory is
+         held by packages with no launcher entry (services, providers, GMS) -->
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
     <uses-feature android:name="android.software.leanback" android:required="false" />
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
     <uses-feature android:name="android.hardware.faketouch" android:required="false" />
@@ -35,6 +38,7 @@
         android:banner="@drawable/banner"
         android:theme="@style/Theme.Hyper"
         android:allowBackup="false"
+        android:largeHeap="true"
         android:supportsRtl="true">
 
         <activity

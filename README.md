@@ -145,6 +145,7 @@ The **only** network request it can ever make is the opt-in weather chip: an ano
 | `ACCESS_FINE_LOCATION` | Android 12+ requires it just to read the connected SSID — never used for location |
 | `REQUEST_DELETE_PACKAGES` | Uninstall option in the app context menu |
 | `KILL_BACKGROUND_PROCESSES` | The memory optimize action |
+| `QUERY_ALL_PACKAGES` | Lets the optimizer enumerate every installed package — most cached memory lives in packages with no launcher entry |
 
 ## Build from source
 

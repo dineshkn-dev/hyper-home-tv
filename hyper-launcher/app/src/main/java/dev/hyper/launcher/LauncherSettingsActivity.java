@@ -17,15 +17,16 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 
 /**
- * In-launcher settings — iOS-style grouped list. Flat dark group
- * cards with inset hairline separators, tinted icon tiles on the
- * left, iOS-green toggle switches, a segmented control for the
- * companion mode, and values/actions on the right edge.
- * "Mouse chase" lives inside the Companion group and greys out
- * when the cat itself is Off. All framework views.
+ * In-launcher settings — macOS System Settings layout. A left
+ * sidebar of category items keeps its selection highlighted while
+ * the right pane shows that category's iOS-style group cards.
+ * Focusing a sidebar item populates the pane live; D-Pad right or
+ * OK hops focus into the pane. All framework views.
  */
 public final class LauncherSettingsActivity extends Activity {
 
@@ -45,136 +46,273 @@ public final class LauncherSettingsActivity extends Activity {
 
     private SharedPreferences prefs;
     private float d;
-    private View firstFocusable;
-    private LinearLayout mouseRow;   // companion sub-setting
-    private FrameLayout mouseSw;
+    private LinearLayout pane;
+    private final List<View> railItems = new ArrayList<>();
+    private final List<Cat> cats = new ArrayList<>();
+    private Cat active;
+    private LinearLayout mouseRow;
+
+    private interface OnPick { void set(int i); }
+
+    private static final class Cat {
+        final int icon; final String label; final int tint;
+        Cat(int icon, String label, int tint) {
+            this.icon = icon; this.label = label; this.tint = tint;
+        }
+    }
 
     @Override protected void onCreate(Bundle b) {
         super.onCreate(b);
         prefs = getSharedPreferences(PREF, MODE_PRIVATE);
         d = getResources().getDisplayMetrics().density;
+        buildCats();
 
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.HORIZONTAL);
+        root.setClipChildren(false);
+        root.setPadding((int) (56 * d), (int) (40 * d),
+                (int) (56 * d), (int) (40 * d));
+        setContentView(root);
+
+        // ================= sidebar =================
+        LinearLayout rail = new LinearLayout(this);
+        rail.setOrientation(LinearLayout.VERTICAL);
+        rail.setClipChildren(false);
+        LinearLayout.LayoutParams rp = new LinearLayout.LayoutParams(
+                (int) (300 * d), LinearLayout.LayoutParams.MATCH_PARENT);
+        rp.setMarginEnd((int) (36 * d));
+        root.addView(rail, rp);
+
+        TextView title = new TextView(this);
+        title.setText("Settings");
+        title.setTextSize(28f);
+        title.setTextColor(TXT);
+        rail.addView(title);
+        TextView sub = new TextView(this);
+        sub.setText("Hyper Launcher");
+        sub.setTextSize(12.5f);
+        sub.setTextColor(DIM);
+        sub.setPadding(0, (int) (3 * d), 0, (int) (30 * d));
+        rail.addView(sub);
+
+        for (Cat c : cats) rail.addView(railItem(c));
+
+        TextView hint = new TextView(this);
+        hint.setText("OK / ▶ enters pane · ◀ returns · Back exits");
+        hint.setTextSize(11.5f);
+        hint.setTextColor(DIM);
+        LinearLayout.LayoutParams hlp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT);
+        hlp.topMargin = (int) (26 * d);
+        rail.addView(hint, hlp);
+
+        // ================= right pane =================
         ScrollView sv = new ScrollView(this);
         sv.setVerticalScrollBarEnabled(false);
         sv.setOverScrollMode(View.OVER_SCROLL_NEVER);
         sv.setClipToPadding(false);
-        sv.setPadding((int) (64 * d), (int) (40 * d),
-                (int) (64 * d), (int) (40 * d));
-        setContentView(sv);
+        root.addView(sv, new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.MATCH_PARENT, 1f));
 
-        LinearLayout col = new LinearLayout(this);
-        col.setOrientation(LinearLayout.VERTICAL);
-        col.setClipChildren(false);
-        sv.addView(col, new ScrollView.LayoutParams(
+        pane = new LinearLayout(this);
+        pane.setOrientation(LinearLayout.VERTICAL);
+        pane.setClipChildren(false);
+        sv.addView(pane, new ScrollView.LayoutParams(
                 ScrollView.LayoutParams.MATCH_PARENT,
                 ScrollView.LayoutParams.WRAP_CONTENT));
 
-        // ---------- header — iOS large title ----------
-        TextView title = new TextView(this);
-        title.setText("Settings");
-        title.setTextSize(34f);
-        title.setTextColor(TXT);
-        col.addView(title);
-        TextView sub = new TextView(this);
-        sub.setText("Hyper Launcher");
-        sub.setTextSize(13f);
-        sub.setTextColor(DIM);
-        sub.setPadding((int) (2 * d), (int) (2 * d), 0, 0);
-        col.addView(sub);
-
-        // ---------- Companion ----------
-        LinearLayout gCat = section(col, "Companion");
-        segmentRow(gCat, R.drawable.ic_paw, "Cat",
-                "Full plays, Ambient rests", 0xFF8A7CFF,
-                new String[]{"Full", "Ambient", "Off"},
-                prefs.getInt(K_COMPANION, 0),
-                i -> prefs.edit().putInt(K_COMPANION, i).apply());
-        mouseRow = switchRow(gCat, R.drawable.ic_mouse, "Mouse chase",
-                "Jerry pops out while the cat sleeps", 0xFF5BC8AF,
-                K_MOUSE, true, true);
-        updateMouseEnabled();
-
-        // ---------- Personalize ----------
-        LinearLayout g1 = section(col, "Personalize");
-        switchRow(g1, R.drawable.ic_gauge, "Hero strip",
-                "RAM · CPU · storage · temperature", 0xFF6EA8FF,
-                K_HERO, true, false);
-        switchRow(g1, R.drawable.ic_clock, "Clock seconds",
-                "Show seconds in the top-bar clock", 0xFFF0B84A,
-                K_SECONDS, true, false);
-        switchRow(g1, R.drawable.ic_tag, "Always show app names",
-                "Labels under every tile, or only on focus", 0xFFE86A92,
-                K_LABELS, false, false);
-
-        // ---------- Status bar ----------
-        LinearLayout g2 = section(col, "Status bar");
-        switchRow(g2, R.drawable.ic_cloud, "Weather chip",
-                "Weather + AQI in the top bar", 0xFF5BC8AF,
-                K_WEATHER, true, false);
-        switchRow(g2, R.drawable.ic_wifi, "Wi-Fi chip",
-                "Network status in the top bar", 0xFF6EA8FF,
-                K_WIFI, true, false);
-
-        // ---------- System ----------
-        LinearLayout g3 = section(col, "System");
-        actionRow(g3, R.drawable.ic_bolt, "Optimize memory",
-                "Clear cached background apps", 0xFFF0B84A);
-        infoRow(g3, R.drawable.ic_info, "About this TV", 0xFF7B86A2,
-                Build.MODEL + " · Android " + Build.VERSION.RELEASE);
-
-        // footer hint
-        TextView hint = new TextView(this);
-        hint.setText("OK toggles · D-Pad ◀ ▶ adjusts · Back exits");
-        hint.setTextSize(12f);
-        hint.setTextColor(DIM);
-        hint.setGravity(Gravity.CENTER_HORIZONTAL);
-        LinearLayout.LayoutParams hlp = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT);
-        hlp.topMargin = (int) (16 * d);
-        col.addView(hint, hlp);
-
-        // staggered entrance — sections rise and fade
+        // sidebar entrance, then focus the first item
         int i = 0;
-        for (int k = 0; k < col.getChildCount(); k++) {
-            View v = col.getChildAt(k);
+        for (View v : railItems) {
             v.setAlpha(0f);
-            v.setTranslationY(18 * d);
-            v.animate().alpha(1f).translationY(0)
-                    .setStartDelay(60 + 45L * i++)
-                    .setDuration(260)
+            v.setTranslationX(-20 * d);
+            v.animate().alpha(1f).translationX(0)
+                    .setStartDelay(60 + 40L * i++).setDuration(240)
                     .setInterpolator(new DecelerateInterpolator(1.6f))
                     .start();
         }
-        if (firstFocusable != null)
-            firstFocusable.post(() -> firstFocusable.requestFocus());
+        railItems.get(0).post(() -> railItems.get(0).requestFocus());
+    }
+
+    private void buildCats() {
+        cats.add(new Cat(R.drawable.ic_paw, "Companion", 0xFF8A7CFF));
+        cats.add(new Cat(R.drawable.ic_tag, "Personalize", 0xFFE86A92));
+        cats.add(new Cat(R.drawable.ic_wifi, "Status bar", 0xFF6EA8FF));
+        cats.add(new Cat(R.drawable.ic_settings, "System", 0xFF7B86A2));
+    }
+
+    // ---------- sidebar ----------
+
+    private View railItem(Cat c) {
+        LinearLayout it = new LinearLayout(this);
+        it.setOrientation(LinearLayout.HORIZONTAL);
+        it.setGravity(Gravity.CENTER_VERTICAL);
+        it.setPadding((int) (14 * d), (int) (10 * d),
+                (int) (14 * d), (int) (10 * d));
+        it.setFocusable(true);
+        it.setClickable(true);
+        it.setTag(c);
+
+        FrameLayout tile = new FrameLayout(this);
+        GradientDrawable tb = new GradientDrawable(
+                GradientDrawable.Orientation.TL_BR,
+                new int[]{0x3D000000 | (c.tint & 0x00FFFFFF),
+                        0x22000000 | (c.tint & 0x00FFFFFF)});
+        tb.setCornerRadius(8 * d);
+        tile.setBackground(tb);
+        tile.setTag("tile");
+        ImageView ic = new ImageView(this);
+        ic.setImageResource(c.icon);
+        ic.setColorFilter(c.tint);
+        ic.setTag("icon");
+        tile.addView(ic, new FrameLayout.LayoutParams(
+                (int) (15 * d), (int) (15 * d), Gravity.CENTER));
+        LinearLayout.LayoutParams tp = new LinearLayout.LayoutParams(
+                (int) (30 * d), (int) (30 * d));
+        tp.setMarginEnd((int) (13 * d));
+        it.addView(tile, tp);
+
+        TextView t = new TextView(this);
+        t.setText(c.label);
+        t.setTextSize(15f);
+        t.setTag("label");
+        it.addView(t);
+
+        it.setOnFocusChangeListener((v, has) -> {
+            if (has) populate(c);
+            styleRailItem(v, c, has);
+        });
+        // OK or D-Pad right hops into the pane
+        it.setOnClickListener(v -> focusPane());
+        it.setOnKeyListener((v, code, ev) -> {
+            if (ev.getAction() == KeyEvent.ACTION_DOWN
+                    && code == KeyEvent.KEYCODE_DPAD_RIGHT) {
+                focusPane();
+                return true;
+            }
+            return false;
+        });
+
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT);
+        lp.bottomMargin = (int) (4 * d);
+        it.setLayoutParams(lp);
+        railItems.add(it);
+        styleRailItem(it, c, false);
+        return it;
+    }
+
+    /** macOS sidebar: focused item gets the strong pill, the active
+     *  category keeps a subtle pill while you're in the pane. */
+    private void styleRailItem(View v, Cat c, boolean focused) {
+        boolean isActive = c == active;
+        GradientDrawable bg = new GradientDrawable();
+        bg.setCornerRadius(10 * d);
+        bg.setColor(focused ? 0x2EFFFFFF : isActive ? 0x14FFFFFF
+                : 0x00000000);
+        v.setBackground(bg);
+        int fg = focused ? 0xFFFFFFFF : isActive ? TXT : DIM;
+        ImageView ic = v.findViewWithTag("icon");
+        TextView t = v.findViewWithTag("label");
+        if (ic != null) ic.setColorFilter(focused || isActive
+                ? c.tint : dim(c.tint));
+        if (t != null) t.setTextColor(fg);
+    }
+
+    private static int dim(int c) {
+        return (c & 0x00FFFFFF) | 0x99FFFFFF;
+    }
+
+    private void styleRail() {
+        for (View v : railItems)
+            styleRailItem(v, (Cat) v.getTag(), v.hasFocus());
+    }
+
+    private void focusPane() {
+        for (int i = 0; i < pane.getChildCount(); i++) {
+            View row = pane.getChildAt(i);
+            if (row.isFocusable()) { row.requestFocus(); return; }
+            if (row instanceof LinearLayout) {
+                LinearLayout g = (LinearLayout) row;
+                for (int k = 0; k < g.getChildCount(); k++)
+                    if (g.getChildAt(k).isFocusable()) {
+                        g.getChildAt(k).requestFocus();
+                        return;
+                    }
+            }
+        }
+    }
+
+    // ---------- pane ----------
+
+    private void populate(Cat c) {
+        if (c == active) return;
+        active = c;
+        styleRail();
+        pane.removeAllViews();
+        LinearLayout card = card();
+
+        if (c.label.equals("Companion")) {
+            segmentRow(card, R.drawable.ic_paw, "Cat",
+                    "Full plays, Ambient rests", 0xFF8A7CFF,
+                    new String[]{"Full", "Ambient", "Off"},
+                    prefs.getInt(K_COMPANION, 0),
+                    i -> prefs.edit().putInt(K_COMPANION, i).apply());
+            mouseRow = switchRow(card, R.drawable.ic_mouse, "Mouse chase",
+                    "Jerry pops out while the cat sleeps", 0xFF5BC8AF,
+                    K_MOUSE, true, true);
+            updateMouseEnabled();
+        } else if (c.label.equals("Personalize")) {
+            switchRow(card, R.drawable.ic_gauge, "Hero strip",
+                    "RAM · CPU · storage · temperature", 0xFF6EA8FF,
+                    K_HERO, true, false);
+            switchRow(card, R.drawable.ic_clock, "Clock seconds",
+                    "Show seconds in the top-bar clock", 0xFFF0B84A,
+                    K_SECONDS, true, false);
+            switchRow(card, R.drawable.ic_tag, "Always show app names",
+                    "Labels under every tile, or only on focus",
+                    0xFFE86A92, K_LABELS, false, false);
+        } else if (c.label.equals("Status bar")) {
+            switchRow(card, R.drawable.ic_cloud, "Weather chip",
+                    "Weather + AQI in the top bar", 0xFF5BC8AF,
+                    K_WEATHER, true, false);
+            switchRow(card, R.drawable.ic_wifi, "Wi-Fi chip",
+                    "Network status in the top bar", 0xFF6EA8FF,
+                    K_WIFI, true, false);
+        } else {
+            actionRow(card, R.drawable.ic_bolt, "Optimize memory",
+                    "Clear cached background apps", 0xFFF0B84A);
+            infoRow(card, R.drawable.ic_info, "About this TV", 0xFF7B86A2,
+                    Build.MODEL + " · Android " + Build.VERSION.RELEASE);
+        }
+        pane.addView(card);
+
+        // rows slide in staggered
+        for (int i = 0; i < card.getChildCount(); i++) {
+            View v = card.getChildAt(i);
+            v.setAlpha(0f);
+            v.setTranslationX(24 * d);
+            v.animate().alpha(1f).translationX(0)
+                    .setStartDelay(50 + 45L * i).setDuration(220)
+                    .setInterpolator(new DecelerateInterpolator(1.6f))
+                    .start();
+        }
     }
 
     /** Mouse chase only makes sense while the cat exists. */
     private void updateMouseEnabled() {
         if (mouseRow == null) return;
         boolean catOn = prefs.getInt(K_COMPANION, 0) != 2;
-        float a = catOn ? 1f : 0.38f;
-        mouseRow.setAlpha(a);
+        mouseRow.setAlpha(catOn ? 1f : 0.38f);
         mouseRow.setFocusable(catOn);
         mouseRow.setClickable(catOn);
     }
 
     // ---------- group card ----------
 
-    private LinearLayout section(LinearLayout col, String title) {
-        TextView h = new TextView(this);
-        h.setText(title.toUpperCase(Locale.US));
-        h.setTextSize(12f);
-        h.setTextColor(DIM);
-        h.setLetterSpacing(0.12f);
-        h.setPadding((int) (18 * d), 0, 0, (int) (8 * d));
-        LinearLayout.LayoutParams hp = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT);
-        hp.topMargin = (int) (26 * d);
-        col.addView(h, hp);
-
+    private LinearLayout card() {
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.VERTICAL);
         card.setClipChildren(false);
@@ -182,9 +320,11 @@ public final class LauncherSettingsActivity extends Activity {
         bg.setColor(0xFF15171F);                    // iOS grouped-cell grey
         bg.setCornerRadius(16 * d);
         card.setBackground(bg);
-        col.addView(card, new LinearLayout.LayoutParams(
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT));
+                LinearLayout.LayoutParams.WRAP_CONTENT);
+        lp.topMargin = (int) (6 * d);
+        card.setLayoutParams(lp);
         return card;
     }
 
@@ -193,15 +333,13 @@ public final class LauncherSettingsActivity extends Activity {
         line.setBackgroundColor(0x14FFFFFF);        // iOS separator
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, 1);
-        lp.leftMargin = (int) (74 * d);             // align with row labels
+        lp.leftMargin = (int) (74 * d);
         lp.rightMargin = (int) (18 * d);
         card.addView(line, lp);
     }
 
     // ---------- row scaffold ----------
 
-    /** Icon tile + label/description; returns the row for the caller
-     *  to append a right-edge control. */
     private LinearLayout rowBase(LinearLayout card, int icon,
                                  String label, String desc, int tint,
                                  boolean focusable) {
@@ -220,7 +358,6 @@ public final class LauncherSettingsActivity extends Activity {
         bg.setColor(0x00000000);
         row.setBackground(bg);
 
-        // tinted icon tile — iOS coloured setting icons
         FrameLayout tile = new FrameLayout(this);
         GradientDrawable tb = new GradientDrawable(
                 GradientDrawable.Orientation.TL_BR,
@@ -266,7 +403,6 @@ public final class LauncherSettingsActivity extends Activity {
                         .setInterpolator(new DecelerateInterpolator(1.8f))
                         .setDuration(140).start();
             });
-            if (firstFocusable == null) firstFocusable = row;
         }
         card.addView(row);
         return row;
@@ -274,7 +410,6 @@ public final class LauncherSettingsActivity extends Activity {
 
     // ---------- controls ----------
 
-    /** @param refMouse when true this is the companion sub-row we can disable */
     private LinearLayout switchRow(LinearLayout card, int icon, String label,
                                    String desc, int tint, String key,
                                    boolean def, boolean refMouse) {
@@ -287,7 +422,6 @@ public final class LauncherSettingsActivity extends Activity {
             prefs.edit().putBoolean(key, on).apply();
             animateSwitch(sw, on);
         });
-        if (refMouse) mouseSw = sw;
         return row;
     }
 
@@ -329,7 +463,7 @@ public final class LauncherSettingsActivity extends Activity {
 
     private void segmentRow(LinearLayout card, int icon, String label,
                             String desc, int tint, String[] options, int cur,
-                            java.util.function.IntConsumer pick) {
+                            OnPick pick) {
         LinearLayout row = rowBase(card, icon, label, desc, tint, true);
         LinearLayout seg = new LinearLayout(this);
         seg.setOrientation(LinearLayout.HORIZONTAL);
@@ -362,7 +496,6 @@ public final class LauncherSettingsActivity extends Activity {
         Runnable style = () -> {
             for (int i = 0; i < cells.length; i++) {
                 GradientDrawable tb = (GradientDrawable) cells[i].getBackground();
-                // iOS: light pill on dark track
                 tb.setColor(i == sel[0] ? 0xFFE8EDF8 : 0x00000000);
                 cells[i].setTextColor(i == sel[0] ? 0xFF14181F : DIM);
                 cells[i].setTypeface(null, i == sel[0]
@@ -375,19 +508,19 @@ public final class LauncherSettingsActivity extends Activity {
 
         row.setOnClickListener(v -> {
             sel[0] = (sel[0] + 1) % options.length;
-            pick.accept(sel[0]);
+            pick.set(sel[0]);
             style.run();
             updateMouseEnabled();
         });
         row.setOnKeyListener((v, code, ev) -> {
             if (ev.getAction() != KeyEvent.ACTION_DOWN) return false;
             if (code == KeyEvent.KEYCODE_DPAD_LEFT && sel[0] > 0) {
-                sel[0]--; pick.accept(sel[0]); style.run(); updateMouseEnabled();
+                sel[0]--; pick.set(sel[0]); style.run(); updateMouseEnabled();
                 return true;
             }
             if (code == KeyEvent.KEYCODE_DPAD_RIGHT
                     && sel[0] < options.length - 1) {
-                sel[0]++; pick.accept(sel[0]); style.run(); updateMouseEnabled();
+                sel[0]++; pick.set(sel[0]); style.run(); updateMouseEnabled();
                 return true;
             }
             return false;

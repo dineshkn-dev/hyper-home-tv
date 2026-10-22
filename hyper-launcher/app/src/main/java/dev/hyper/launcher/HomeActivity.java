@@ -16,12 +16,15 @@ import android.net.NetworkCapabilities;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
+import android.graphics.Typeface;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.app.Dialog;
 import android.graphics.Color;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.View;
@@ -29,6 +32,7 @@ import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
 import android.view.animation.DecelerateInterpolator;
+import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.AdapterView;
 import android.widget.EditText;
@@ -68,6 +72,9 @@ public final class HomeActivity extends Activity {
     private View lastSelectedTile;
     private View barFocus;   // top-bar element that last held focus
     private Dialog menuDlg;
+    private Dialog folderDlg;
+    private GridView folderGrid;
+    private Dialog appMenuDlg;
     private boolean menuOpen, moving;
     private String lastPkg, lastItemKey;
     private ConnectivityManager cm;
@@ -588,13 +595,13 @@ public final class HomeActivity extends Activity {
     private Dialog buildDialog(View content, int widthDp, int x, int y,
                                float pivotXFrac, float pivotYFrac) {
         return buildDialog(content, widthDp, x, y, pivotXFrac, pivotYFrac,
-                0.88f, 170, null);
+                0.88f, 170, null, true);
     }
 
     private Dialog buildDialog(View content, int widthDp, int x, int y,
                                float pivotXFrac, float pivotYFrac,
                                float startScale, int durationMs,
-                               View pivotAnchor) {
+                               View pivotAnchor, boolean overshoot) {
         float d = getResources().getDisplayMetrics().density;
         // opaque dark card over the blurred backdrop
         GradientDrawable bg = new GradientDrawable(
@@ -632,6 +639,10 @@ public final class HomeActivity extends Activity {
                 menuDlg = null;
                 focusBack();
             }
+            if (folderDlg == dlg) {
+                folderDlg = null;
+                folderGrid = null;
+            }
         });
         menuOpen = true;
         menuDlg = dlg;
@@ -660,7 +671,9 @@ public final class HomeActivity extends Activity {
             content.animate()
                     .alpha(1f).scaleX(1f).scaleY(1f).translationY(0f)
                     .setDuration(durationMs)
-                    .setInterpolator(new android.view.animation.OvershootInterpolator(1.1f))
+                    .setInterpolator(overshoot
+                            ? new android.view.animation.OvershootInterpolator(1.1f)
+                            : new DecelerateInterpolator(1.7f))
                     .start();
         });
         return dlg;
@@ -752,9 +765,9 @@ public final class HomeActivity extends Activity {
         menu.setOrientation(LinearLayout.VERTICAL);
 
         addMenuItem(menu, d, R.drawable.ic_folder, "Open", () -> {
-            closeMenu();
             HomeItem item = findFolderItem(folder);
             if (item != null) openFolder(item);
+            else closeMenu();
         });
         addMenuItem(menu, d, R.drawable.ic_tag, "Rename", () -> {
             closeMenu();
@@ -850,50 +863,198 @@ public final class HomeActivity extends Activity {
         LinearLayout panel = new LinearLayout(this);
         panel.setOrientation(LinearLayout.VERTICAL);
 
+        // header: folder badge + title
+        LinearLayout header = new LinearLayout(this);
+        header.setOrientation(LinearLayout.HORIZONTAL);
+        header.setGravity(Gravity.CENTER_VERTICAL);
+
+        FrameLayout badge = new FrameLayout(this);
+        GradientDrawable badgeBg = new GradientDrawable();
+        badgeBg.setColor(0x266EA8FF);
+        badgeBg.setCornerRadius(11 * d);
+        badge.setBackground(badgeBg);
+        ImageView badgeIcon = new ImageView(this);
+        badgeIcon.setImageResource(R.drawable.ic_folder);
+        badgeIcon.setColorFilter(0xFF8FB7FF);
+        badge.addView(badgeIcon, new FrameLayout.LayoutParams(
+                (int) (22 * d), (int) (22 * d), Gravity.CENTER));
+        LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(
+                (int) (38 * d), (int) (38 * d));
+        blp.setMarginEnd((int) (13 * d));
+        header.addView(badge, blp);
+
+        LinearLayout texts = new LinearLayout(this);
+        texts.setOrientation(LinearLayout.VERTICAL);
         TextView title = new TextView(this);
         title.setText("Rename folder");
-        title.setTextSize(13f);
-        title.setTextColor(0xFFAAB3C5);
-        title.setPadding((int) (16 * d), (int) (6 * d),
-                (int) (16 * d), (int) (8 * d));
-        panel.addView(title);
+        title.setTextSize(17f);
+        title.setTextColor(0xFFF1F4FA);
+        texts.addView(title);
+        TextView sub = new TextView(this);
+        sub.setText("Give this folder a new name");
+        sub.setTextSize(12f);
+        sub.setTextColor(0xFF8A94AA);
+        sub.setPadding(0, (int) (2 * d), 0, 0);
+        texts.addView(sub);
+        header.addView(texts, new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        panel.addView(header, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT));
 
+        // rounded, focus-accented text field
         EditText input = new EditText(this);
         input.setText(folder.name);
         input.setSingleLine(true);
-        input.setTextSize(16f);
+        input.setTextSize(17f);
         input.setTextColor(0xFFE8EDF8);
         input.setSelectAllOnFocus(true);
-        GradientDrawable ibg = new GradientDrawable();
-        ibg.setColor(0x1FFFFFFF);
-        ibg.setCornerRadius(10 * d);
-        input.setBackground(ibg);
-        input.setPadding((int) (12 * d), (int) (9 * d),
-                (int) (12 * d), (int) (9 * d));
+        input.setImeOptions(EditorInfo.IME_ACTION_DONE);
+        int ipadH = (int) (14 * d), ipadV = (int) (11 * d);
+        input.setPadding(ipadH, ipadV, ipadH, ipadV);
+        Runnable styleInput = () -> {
+            boolean focused = input.hasFocus();
+            GradientDrawable ibg = new GradientDrawable();
+            ibg.setColor(focused ? 0x2AFFFFFF : 0x1CFFFFFF);
+            ibg.setCornerRadius(13 * d);
+            ibg.setStroke((int) ((focused ? 2 : 1) * d),
+                    focused ? 0x8F6EA8FF : 0x33FFFFFF);
+            input.setBackground(ibg);
+        };
+        input.setOnFocusChangeListener((v, has) -> styleInput.run());
+        styleInput.run();
         LinearLayout.LayoutParams ilp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT);
-        ilp.setMargins((int) (10 * d), 0, (int) (10 * d), (int) (8 * d));
+        ilp.topMargin = (int) (16 * d);
         panel.addView(input, ilp);
 
-        addMenuItem(panel, d, R.drawable.ic_tag, "Save name", () -> {
+        // actions
+        LinearLayout actions = new LinearLayout(this);
+        actions.setOrientation(LinearLayout.HORIZONTAL);
+        actions.setGravity(Gravity.END);
+
+        TextView cancel = new TextView(this);
+        cancel.setText("Cancel");
+        cancel.setTextSize(14f);
+        cancel.setTextColor(0xFFC7D0E0);
+        cancel.setGravity(Gravity.CENTER);
+        cancel.setPadding((int) (18 * d), (int) (10 * d),
+                (int) (18 * d), (int) (10 * d));
+        cancel.setFocusable(true);
+        cancel.setClickable(true);
+        GradientDrawable cbg = new GradientDrawable();
+        cbg.setColor(0x1FFFFFFF);
+        cbg.setCornerRadius(12 * d);
+        cancel.setBackground(cbg);
+        cancel.setOnFocusChangeListener((v, has) -> {
+            cbg.setColor(has ? 0x2EFFFFFF : 0x1FFFFFFF);
+            cancel.setTextColor(has ? 0xFFFFFFFF : 0xFFC7D0E0);
+            v.animate().scaleX(has ? 1.06f : 1f)
+                    .scaleY(has ? 1.06f : 1f)
+                    .setDuration(140).start();
+        });
+        cancel.setOnClickListener(v -> closeMenu());
+
+        TextView saveBtn = new TextView(this);
+        saveBtn.setText("Rename");
+        saveBtn.setTextSize(14f);
+        saveBtn.setTypeface(null, Typeface.BOLD);
+        saveBtn.setTextColor(0xFF0B0D13);
+        saveBtn.setGravity(Gravity.CENTER);
+        saveBtn.setPadding((int) (22 * d), (int) (10 * d),
+                (int) (22 * d), (int) (10 * d));
+        saveBtn.setFocusable(true);
+        saveBtn.setClickable(true);
+        GradientDrawable rbg = new GradientDrawable();
+        rbg.setColor(0xFF7A9BFF);
+        rbg.setCornerRadius(12 * d);
+        saveBtn.setBackground(rbg);
+        saveBtn.setOnFocusChangeListener((v, has) -> {
+            rbg.setColor(has ? 0xFF9DBAFF : 0xFF7A9BFF);
+            v.animate().scaleX(has ? 1.07f : 1f)
+                    .scaleY(has ? 1.07f : 1f)
+                    .setDuration(140).start();
+        });
+
+        Runnable save = () -> {
             String name = input.getText().toString().trim();
-            if (!name.isEmpty()) folder.name = name;
+            if (name.isEmpty()) return;
+            folder.name = name;
             saveFolders();
             closeMenu();
             populate();
+        };
+        saveBtn.setOnClickListener(v -> save.run());
+        input.setOnEditorActionListener((v, actionId, event) -> {
+            if (actionId == EditorInfo.IME_ACTION_DONE
+                    || (event != null
+                    && event.getKeyCode() == KeyEvent.KEYCODE_ENTER
+                    && event.getAction() == KeyEvent.ACTION_DOWN)) {
+                save.run();
+                return true;
+            }
+            return false;
         });
 
-        Dialog dlg = buildDialog(panel, 340, -1, 0, 0.5f, 0.5f);
+        LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT);
+        clp.setMarginEnd((int) (10 * d));
+        actions.addView(cancel, clp);
+        actions.addView(saveBtn);
+        LinearLayout.LayoutParams alp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT);
+        alp.topMargin = (int) (18 * d);
+        panel.addView(actions, alp);
+
+        int inputId = View.generateViewId();
+        input.setId(inputId);
+        cancel.setId(View.generateViewId());
+        saveBtn.setId(View.generateViewId());
+        input.setNextFocusDownId(cancel.getId());
+        cancel.setNextFocusRightId(saveBtn.getId());
+        cancel.setNextFocusUpId(inputId);
+        saveBtn.setNextFocusLeftId(cancel.getId());
+        saveBtn.setNextFocusUpId(inputId);
+
+        input.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int st,
+                                                    int c, int a) {}
+            @Override public void onTextChanged(CharSequence s, int st,
+                                                int b, int c) {}
+            @Override public void afterTextChanged(Editable s) {
+                boolean ok = s.toString().trim().length() > 0;
+                saveBtn.setEnabled(ok);
+                saveBtn.setFocusable(ok);
+                saveBtn.setAlpha(ok ? 1f : 0.45f);
+            }
+        });
+
+        Dialog dlg = buildDialog(panel, 420, -1, 0, 0.5f, 0.5f);
+        GradientDrawable card = new GradientDrawable(
+                GradientDrawable.Orientation.TOP_BOTTOM,
+                new int[]{0xF22A3142, 0xF2191E2A});
+        card.setCornerRadius(22 * d);
+        card.setStroke((int) (1 * d), 0x3DFFFFFF);
+        panel.setBackground(card);
+        int outer = (int) (18 * d);
+        panel.setPadding(outer, outer, outer, (int) (16 * d));
+
         Window win = dlg.getWindow();
         if (win != null) {
+            WindowManager.LayoutParams lp = win.getAttributes();
+            if (Build.VERSION.SDK_INT >= 31) lp.setBlurBehindRadius(64);
+            lp.dimAmount = 0.38f;
+            win.setAttributes(lp);
             win.setSoftInputMode(
                     WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE
                             | WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
         }
         input.post(() -> {
             input.requestFocus();
-            input.setSelection(input.getText().length());
+            input.selectAll();
             InputMethodManager imm = (InputMethodManager)
                     getSystemService(INPUT_METHOD_SERVICE);
             if (imm != null)
@@ -904,7 +1065,7 @@ public final class HomeActivity extends Activity {
     /** Open a folder as a floating grid of every app inside it. */
     private void openFolder(HomeItem item) {
         View anchor = grid.getSelectedView();
-        closeMenu();
+        dismissMenuQuietly();
         Folder folder = item.folder;
         List<AppEntry> apps = new ArrayList<>(item.folderApps);
         if (apps.isEmpty()) return;
@@ -913,64 +1074,88 @@ public final class HomeActivity extends Activity {
         LinearLayout panel = new LinearLayout(this);
         panel.setOrientation(LinearLayout.VERTICAL);
         panel.setClipChildren(false);
+        panel.setClipToPadding(false);
 
-        // header: accent folder badge + name + count
+        // header: accent folder badge + name + count pill
         LinearLayout header = new LinearLayout(this);
         header.setOrientation(LinearLayout.HORIZONTAL);
         header.setGravity(Gravity.CENTER_VERTICAL);
-        int hp = (int) (18 * d);
-        header.setPadding(hp, (int) (18 * d), hp, (int) (14 * d));
+        int hp = (int) (20 * d);
+        header.setPadding(hp, (int) (20 * d), hp, (int) (16 * d));
 
         FrameLayout badge = new FrameLayout(this);
         GradientDrawable badgeBg = new GradientDrawable();
-        badgeBg.setColor(0x266EA8FF);
-        badgeBg.setCornerRadius(13 * d);
+        badgeBg.setColor(0x296EA8FF);
+        badgeBg.setCornerRadius(15 * d);
         badge.setBackground(badgeBg);
         ImageView badgeIcon = new ImageView(this);
         badgeIcon.setImageResource(R.drawable.ic_folder);
-        badgeIcon.setColorFilter(0xFF8FB7FF);
+        badgeIcon.setColorFilter(0xFF9CBEFF);
         badge.addView(badgeIcon, new FrameLayout.LayoutParams(
-                (int) (24 * d), (int) (24 * d), Gravity.CENTER));
+                (int) (26 * d), (int) (26 * d), Gravity.CENTER));
         LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(
-                (int) (46 * d), (int) (46 * d));
-        blp.setMarginEnd((int) (14 * d));
+                (int) (52 * d), (int) (52 * d));
+        blp.setMarginEnd((int) (15 * d));
         header.addView(badge, blp);
 
         LinearLayout texts = new LinearLayout(this);
         texts.setOrientation(LinearLayout.VERTICAL);
         TextView title = new TextView(this);
         title.setText(folder.name);
-        title.setTextSize(20f);
-        title.setTextColor(0xFFF1F4FA);
+        title.setTextSize(21f);
+        title.setTypeface(null, Typeface.BOLD);
+        title.setTextColor(0xFFF3F6FC);
         texts.addView(title);
         TextView sub = new TextView(this);
-        sub.setText(apps.size() + (apps.size() == 1 ? " app" : " apps")
-                + "  ·  OK to open  ·  long-press to remove");
-        sub.setTextSize(12f);
+        sub.setText("OK to open  ·  long-press to remove");
+        sub.setTextSize(12.5f);
         sub.setTextColor(0xFF8A94AA);
         sub.setPadding(0, (int) (3 * d), 0, 0);
         texts.addView(sub);
         header.addView(texts, new LinearLayout.LayoutParams(
                 0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+
+        TextView count = new TextView(this);
+        count.setText(apps.size() + (apps.size() == 1 ? " app" : " apps"));
+        count.setTextSize(12f);
+        count.setTextColor(0xFFAFC6FF);
+        count.setGravity(Gravity.CENTER);
+        count.setPadding((int) (12 * d), (int) (6 * d),
+                (int) (12 * d), (int) (6 * d));
+        GradientDrawable countBg = new GradientDrawable();
+        countBg.setColor(0x1F6EA8FF);
+        countBg.setCornerRadius(20 * d);
+        count.setBackground(countBg);
+        LinearLayout.LayoutParams countLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT);
+        countLp.setMarginStart((int) (12 * d));
+        header.addView(count, countLp);
+
         panel.addView(header, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT));
 
+        // soft accent divider
         View divider = new View(this);
-        divider.setBackgroundColor(0x16FFFFFF);
+        GradientDrawable line = new GradientDrawable(
+                GradientDrawable.Orientation.LEFT_RIGHT,
+                new int[]{0x00FFFFFF, 0x38FFFFFF, 0x00FFFFFF});
+        divider.setBackground(line);
         LinearLayout.LayoutParams dlp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, (int) (1 * d));
         dlp.setMargins(hp, 0, hp, 0);
         panel.addView(divider, dlp);
 
-        int widthDp = Math.min(660,
+        int widthDp = Math.min(1100,
                 (int) (getResources().getDisplayMetrics().widthPixels / d
-                        * 0.88f));
+                        * 0.92f));
         int widthPx = (int) (widthDp * d);
         int contentPad = (int) (8 * d);   // buildDialog's inner padding
-        int gridPad = (int) (18 * d);
-        int gap = (int) (12 * d);
-        int cols = 4;
+        int gridPad = (int) (20 * d);
+        int focusPad = (int) (14 * d);
+        int gap = (int) (14 * d);
+        int cols = 6;
         int tileW = (widthPx - contentPad * 2 - gridPad * 2
                 - gap * (cols - 1)) / cols;
         int tileH = (int) (tileW * 9f / 16f);
@@ -986,8 +1171,9 @@ public final class HomeActivity extends Activity {
         fg.setStretchMode(GridView.NO_STRETCH);
         fg.setSelector(new ColorDrawable(Color.TRANSPARENT));
         fg.setVerticalScrollBarEnabled(false);
+        fg.setClipChildren(false);
         fg.setClipToPadding(false);
-        fg.setPadding(gridPad, 0, gridPad, 0);
+        fg.setPadding(gridPad, focusPad, gridPad, focusPad);
         fg.setAdapter(new AppAdapter(this, folderItems, tileW, tileH));
 
         final View[] last = {null};
@@ -1011,7 +1197,7 @@ public final class HomeActivity extends Activity {
             launch(folderItems.get(pos).app);
         });
         fg.setOnItemLongClickListener((p, v, pos, id) -> {
-            showFolderAppMenu(folder, folderItems.get(pos).app);
+            showFolderAppMenu(folder, folderItems.get(pos).app, v);
             return true;
         });
 
@@ -1019,7 +1205,7 @@ public final class HomeActivity extends Activity {
         int labelH = (int) (28 * d);
         int visibleRows = Math.min(rows, 3);
         int gridH = visibleRows * (tileH + labelH)
-                + (visibleRows - 1) * gap;
+                + (visibleRows - 1) * gap + focusPad * 2;
         LinearLayout.LayoutParams glp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, gridH);
         glp.topMargin = (int) (12 * d);
@@ -1030,49 +1216,69 @@ public final class HomeActivity extends Activity {
                 ViewGroup.LayoutParams.MATCH_PARENT, (int) (18 * d)));
 
         Dialog dlg = buildDialog(panel, widthDp, -1, 0, 0.5f, 0.5f,
-                0.74f, 280, anchor);
+                0.80f, 300, anchor, false);
+        folderDlg = dlg;
+        folderGrid = fg;
 
-        // roomier, modern card + a deeper blur behind it
+        // deep, modern card + strong blur behind it
         GradientDrawable card = new GradientDrawable(
                 GradientDrawable.Orientation.TOP_BOTTOM,
-                new int[]{0xF2282F40, 0xF2191E2A});
-        card.setCornerRadius(24 * d);
+                new int[]{0xF22D3548, 0xF0181D28});
+        card.setCornerRadius(28 * d);
         card.setStroke((int) (1 * d), 0x3DFFFFFF);
         panel.setBackground(card);
         Window win = dlg.getWindow();
         if (win != null) {
             WindowManager.LayoutParams lp = win.getAttributes();
-            if (Build.VERSION.SDK_INT >= 31) lp.setBlurBehindRadius(84);
-            lp.dimAmount = 0.44f;
+            if (Build.VERSION.SDK_INT >= 31) lp.setBlurBehindRadius(92);
+            lp.dimAmount = 0.46f;
             win.setAttributes(lp);
         }
 
-        // app tiles stagger in after the card blooms open
-        final float enterY = 16 * d;
+        // tiles breathe in one after another
+        final float enterY = 20 * d;
         fg.postDelayed(() -> {
             for (int i = 0; i < fg.getChildCount(); i++) {
                 View child = fg.getChildAt(i);
                 child.setAlpha(0f);
+                child.setScaleX(0.92f);
+                child.setScaleY(0.92f);
                 child.setTranslationY(enterY);
-                child.animate().alpha(1f).translationY(0f)
-                        .setStartDelay(90 + 40L * i)
-                        .setDuration(260)
-                        .setInterpolator(new DecelerateInterpolator(1.8f))
+                child.animate()
+                        .alpha(1f).scaleX(1f).scaleY(1f).translationY(0f)
+                        .setStartDelay(70 + 32L * i)
+                        .setDuration(300)
+                        .setInterpolator(
+                                new android.view.animation.OvershootInterpolator(0.6f))
                         .start();
             }
-            fg.requestFocus();
             fg.setSelection(0);
-        }, 40);
+            fg.requestFocus();
+        }, 50);
+
+        // once the dialog is fully laid out, make sure the first app owns
+        // focus — the window's initial focus pass can otherwise swallow it
+        fg.postDelayed(() -> {
+            fg.setSelection(0);
+            if (!fg.hasFocus()) fg.requestFocus();
+            View first = fg.getChildAt(0);
+            if (fg.getSelectedItemPosition() <= 0
+                    && first instanceof FocusedTile) {
+                ((FocusedTile) first).setFocusedState(true);
+                last[0] = first;
+            }
+        }, 160);
     }
 
-    private void showFolderAppMenu(Folder folder, AppEntry app) {
-        closeMenu();
+    /** Context menu for an app inside an open folder. It appears over the
+     *  folder instead of closing it, and focus returns to the folder grid. */
+    private void showFolderAppMenu(Folder folder, AppEntry app, View tile) {
         float d = getResources().getDisplayMetrics().density;
         LinearLayout menu = new LinearLayout(this);
         menu.setOrientation(LinearLayout.VERTICAL);
 
         addMenuItem(menu, d, R.drawable.ic_restore, "Remove from folder", () -> {
-            closeMenu();
+            closeChildMenu();
             boolean wasLast = folder.apps.size() == 1;
             folder.apps.remove(app.pkg);
             if (wasLast) {
@@ -1082,6 +1288,8 @@ public final class HomeActivity extends Activity {
             removeFromFolderOrder(app.pkg, folder, wasLast);
             saveFolders();
             populate();
+            if (wasLast) closeFolderView();
+            else reopenFolder(folder);
         });
         if (app.userInstalled) {
             addMenuItem(menu, d, R.drawable.ic_delete, "Uninstall", () -> {
@@ -1098,8 +1306,75 @@ public final class HomeActivity extends Activity {
             });
         }
 
-        buildDialog(menu, 240, -1, 0, 0.5f, 0.5f);
+        int[] loc = new int[2];
+        tile.getLocationOnScreen(loc);
+        int menuW = (int) (230 * d);
+        int menuH = (int) (menu.getChildCount() * 52 * d + 16 * d);
+        int screenW = getResources().getDisplayMetrics().widthPixels;
+        int screenH = getResources().getDisplayMetrics().heightPixels;
+        int x = Math.min(Math.max(loc[0], (int) (16 * d)),
+                screenW - menuW - (int) (16 * d));
+        boolean flipped = false;
+        int y = loc[1] + tile.getHeight() + (int) (4 * d);
+        if (y + menuH > screenH) {
+            y = loc[1] - menuH - (int) (4 * d);
+            flipped = true;
+        }
+        if (y < 0) y = (int) (16 * d);
+
+        // Show the menu as a child dialog so the folder stays visible.
+        Dialog parent = menuDlg;
+        final Dialog child = buildDialog(menu, 230, x, y,
+                0f, flipped ? 1f : 0f);
+        menuDlg = parent;            // keep the folder as the tracked dialog
+        menuOpen = parent != null;
+        appMenuDlg = child;
+        child.setOnDismissListener(dd -> {
+            if (appMenuDlg == child) appMenuDlg = null;
+            if (folderGrid != null && folderGrid.isShown()) {
+                folderGrid.requestFocus();
+                View sel = folderGrid.getSelectedView();
+                if (sel instanceof FocusedTile)
+                    ((FocusedTile) sel).setFocusedState(true);
+            }
+        });
         menu.post(() -> menu.getChildAt(0).requestFocus());
+    }
+
+    private void closeChildMenu() {
+        Dialog d = appMenuDlg;
+        appMenuDlg = null;
+        if (d != null) d.dismiss();
+        if (folderGrid != null && folderGrid.isShown()) {
+            folderGrid.requestFocus();
+            View sel = folderGrid.getSelectedView();
+            if (sel instanceof FocusedTile)
+                ((FocusedTile) sel).setFocusedState(true);
+        }
+    }
+
+    private void closeFolderView() {
+        Dialog d = folderDlg;
+        if (d == null) return;
+        folderDlg = null;
+        folderGrid = null;
+        if (menuDlg == d) {
+            menuDlg = null;
+            menuOpen = false;
+        }
+        d.dismiss();
+        focusBack();
+    }
+
+    /** Rebuild an open folder after its contents changed. */
+    private void reopenFolder(Folder folder) {
+        for (HomeItem item : allItems) {
+            if (item.isFolder() && item.folder == folder) {
+                openFolder(item);
+                return;
+            }
+        }
+        closeFolderView();
     }
 
     private void selectItem(String key) {
@@ -1312,10 +1587,25 @@ public final class HomeActivity extends Activity {
     }
 
     private void closeMenu() {
+        Dialog child = appMenuDlg;
+        appMenuDlg = null;
+        if (child != null) child.dismiss();
         if (menuDlg != null) menuDlg.dismiss();
         menuOpen = false;
         menuDlg = null;
         focusBack();
+    }
+
+    /** Close the menu without pulling focus back to the home grid — used
+     *  when the same interaction immediately opens another window. */
+    private void dismissMenuQuietly() {
+        Dialog child = appMenuDlg;
+        appMenuDlg = null;
+        if (child != null) child.dismiss();
+        Dialog d = menuDlg;
+        menuOpen = false;
+        menuDlg = null;
+        if (d != null) d.dismiss();
     }
 
     /** return focus to the bar icon if one was used, else the grid */
@@ -1756,6 +2046,9 @@ public final class HomeActivity extends Activity {
                         && !p.equals(SETTINGS_PKG))
                     members.add(a);
             }
+            // folders always present their contents A–Z
+            members.sort((a, b) -> String.CASE_INSENSITIVE_ORDER.compare(
+                    a.label.toString(), b.label.toString()));
             if (!members.isEmpty()) items.add(HomeItem.folder(f, members));
         }
 

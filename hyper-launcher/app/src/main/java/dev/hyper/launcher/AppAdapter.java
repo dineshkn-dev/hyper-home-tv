@@ -11,25 +11,28 @@ import java.util.List;
 final class AppAdapter extends BaseAdapter {
 
     private final Context ctx;
-    private final List<AppEntry> apps;
+    private final List<HomeItem> items;
     private final int tileW, tileH;
 
-    AppAdapter(Context ctx, List<AppEntry> apps, int tileW, int tileH) {
+    AppAdapter(Context ctx, List<HomeItem> items, int tileW, int tileH) {
         this.ctx = ctx;
-        this.apps = apps;
+        this.items = items;
         this.tileW = tileW;
         this.tileH = tileH;
     }
 
-    @Override public int getCount() { return apps.size(); }
-    @Override public AppEntry getItem(int i) { return apps.get(i); }
+    @Override public int getCount() { return items.size(); }
+    @Override public HomeItem getItem(int i) { return items.get(i); }
     @Override public long getItemId(int i) { return i; }
 
     @Override public View getView(int i, View convert, ViewGroup parent) {
-        AppTile t = new AppTile(ctx, apps.get(i), tileW, tileH);
-        t.setLayoutParams(new AbsListView.LayoutParams(
+        HomeItem item = items.get(i);
+        View tile = item.isFolder()
+                ? new FolderTile(ctx, item.folder, item.folderApps, tileW, tileH)
+                : new AppTile(ctx, item.app, tileW, tileH);
+        tile.setLayoutParams(new AbsListView.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT));
-        return t;
+        return tile;
     }
 }

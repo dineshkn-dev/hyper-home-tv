@@ -41,7 +41,8 @@ No account. No ads. No tracking. No analytics. Everything runs on-device.
 ### Launcher
 
 - **DPAD-first app grid** — big readable tiles, smooth focus zoom, instant navigation
-- **Organize your way** — long-press to reorder, hide, uninstall, or jump to app info
+- **Organize your way** — long-press to reorder, hide, uninstall, jump to app info, or group apps into folders
+- **Folders** — 2×2 previews on the grid; open one to see every app inside
 - **Everything configurable** — companion, stats strip, labels, clock seconds, status chips
 
 </td>

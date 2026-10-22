@@ -17,7 +17,7 @@ import android.widget.TextView;
  * One app tile: a 16:9 rounded card filled with the app's banner art
  * (icon centered when no banner exists), a label, and a focus ring.
  */
-final class AppTile extends LinearLayout {
+final class AppTile extends LinearLayout implements FocusedTile {
 
     private static final int FOCUS_MS = 180;
     private static final float FOCUS_SCALE = 1.14f;
@@ -112,7 +112,7 @@ final class AppTile extends LinearLayout {
                 ViewGroup.LayoutParams.WRAP_CONTENT));
     }
 
-    void setFocusedState(boolean focused) {
+    @Override public void setFocusedState(boolean focused) {
         box.animate()
                 .scaleX(focused ? FOCUS_SCALE : 1f)
                 .scaleY(focused ? FOCUS_SCALE : 1f)

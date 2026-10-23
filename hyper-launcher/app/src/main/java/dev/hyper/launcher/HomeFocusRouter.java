@@ -15,6 +15,7 @@ final class HomeFocusRouter {
         int topActionIndex(View v);
         View pinnedTile(int index);
         int pinnedIndex(View v);
+        int pinnedCount();
         boolean focus(View v);
         void focusFirstApp();
         boolean deckForward();
@@ -65,13 +66,17 @@ final class HomeFocusRouter {
             } else if (code == KeyEvent.KEYCODE_DPAD_RIGHT) {
                 host.focus(host.pinnedTile(pinned + 1));
             } else if (code == KeyEvent.KEYCODE_DPAD_UP) {
-                host.focus(host.manage());
+                if (pinned == host.pinnedCount() - 1)
+                    host.focus(host.manage());
+                else
+                    host.focus(host.hero());
             }
             return true;
         }
 
         if (focus == host.manage()) {
-            if (code == KeyEvent.KEYCODE_DPAD_DOWN) host.focusFirstApp();
+            if (code == KeyEvent.KEYCODE_DPAD_DOWN)
+                host.focus(host.pinnedTile(host.pinnedCount() - 1));
             else if (code == KeyEvent.KEYCODE_DPAD_UP) host.focus(host.hero());
             return true;
         }

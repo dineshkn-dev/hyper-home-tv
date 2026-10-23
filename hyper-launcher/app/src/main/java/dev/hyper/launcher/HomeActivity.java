@@ -301,6 +301,7 @@ public final class HomeActivity extends Activity implements HomeFocusRouter.Host
     @Override public View hero() { return heroStack; }
     @Override public View manage() { return manageAppsLink; }
     @Override public int topActionCount() { return TOP_ACTION_IDS.length; }
+    @Override public int pinnedCount() { return pinnedResolved.size(); }
     @Override public boolean focus(View v) { return focusView(v); }
     @Override public boolean deckForward() { return heroStack != null && heroStack.goForward(); }
     @Override public boolean deckBack() { return heroStack != null && heroStack.goBack(); }
@@ -476,11 +477,14 @@ public final class HomeActivity extends Activity implements HomeFocusRouter.Host
                 tile.setFocusedState(has);
                 if (has) {
                     barFocus = null;
-                    if (lastSelectedTile instanceof FocusedTile)
+                    if (lastSelectedTile instanceof FocusedTile
+                            && lastSelectedTile != tile)
                         ((FocusedTile) lastSelectedTile).setFocusedState(false);
                     lastSelectedTile = tile;
                     lastPkg = app.pkg;
                     prefs().edit().putString("last", lastPkg).apply();
+                } else if (lastSelectedTile == tile) {
+                    lastSelectedTile = null;
                 }
             });
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(

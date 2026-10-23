@@ -1,6 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Hyper Launcher</string>
-    <string name="all_apps">All Apps</string>
-    <string name="favorites">Favorites</string>
+    <string name="app_name">Hyper OS</string>
 </resources>

@@ -1,215 +1,185 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:orientation="vertical"
     android:clipChildren="false"
-    android:clipToPadding="false">
+    android:clipToPadding="false"
+    android:paddingStart="64dp"
+    android:paddingEnd="64dp"
+    android:paddingTop="24dp"
+    android:paddingBottom="18dp">
 
+    <!-- top bar -->
     <LinearLayout
+        android:id="@+id/topBar"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:orientation="vertical"
-        android:clipChildren="false"
-        android:clipToPadding="false"
-        android:paddingStart="64dp"
-        android:paddingEnd="64dp"
-        android:paddingTop="36dp"
-        android:paddingBottom="10dp">
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
 
-        <!-- minimal top bar -->
         <LinearLayout
-            android:layout_width="match_parent"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
+            android:layout_weight="1"
             android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:layout_marginBottom="36dp">
+            android:gravity="center_vertical">
 
-            <!-- launcher settings -->
             <ImageView
-                android:id="@+id/launcherBtn"
-                android:layout_width="30dp"
-                android:layout_height="30dp"
-                android:src="@drawable/ic_paw"
-                android:alpha="0.55"
-                android:padding="5dp"
-                android:layout_marginEnd="14dp"
+                android:id="@+id/brandBtn"
+                android:layout_width="46dp"
+                android:layout_height="46dp"
+                android:padding="13dp"
+                android:src="@drawable/ic_bolt_logo"
                 android:focusable="true"
                 android:clickable="true"
-                android:contentDescription="Launcher settings" />
-
-            <View
-                android:layout_width="0dp"
-                android:layout_height="1dp"
-                android:layout_weight="1" />
-
-            <!-- wifi: icon + fixed-width scrolling SSID -->
-            <LinearLayout
-                android:id="@+id/wifiGroup"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:paddingStart="10dp"
-                android:paddingEnd="10dp"
-                android:paddingTop="4dp"
-                android:paddingBottom="4dp"
-                android:focusable="true"
-                android:clickable="true"
-                android:layout_marginEnd="4dp">
-
-                <ImageView
-                    android:id="@+id/wifiIcon"
-                    android:layout_width="18dp"
-                    android:layout_height="18dp"
-                    android:src="@drawable/ic_wifi"
-                    android:alpha="0.7" />
-
-                <TextView
-                    android:id="@+id/ssid"
-                    android:layout_width="wrap_content"
-                    android:maxWidth="110dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="8dp"
-                    android:textColor="@color/text_dim"
-                    android:textSize="13sp"
-                    android:singleLine="true"
-                    android:ellipsize="marquee"
-                    android:marqueeRepeatLimit="marquee_forever"
-                    android:focusable="true"
-                    android:scrollHorizontally="true" />
-            </LinearLayout>
+                android:contentDescription="Launcher settings"
+                android:importantForAccessibility="no" />
 
             <TextView
-                android:id="@+id/weather"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:textColor="@color/text_dim"
-                android:textSize="14sp"
-                android:layout_marginEnd="18dp"
-                android:paddingStart="10dp"
-                android:paddingEnd="10dp"
-                android:paddingTop="4dp"
-                android:paddingBottom="4dp"
-                android:focusable="true"
-                android:clickable="true"
-                android:visibility="gone" />
+                android:layout_marginStart="10dp"
+                android:letterSpacing="0.22"
+                android:text="HYPER OS"
+                android:textColor="@color/text_primary"
+                android:textSize="11sp" />
+        </LinearLayout>
 
-            <TextView
-                android:id="@+id/date"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:textColor="@color/text_dim"
-                android:textSize="14sp"
-                android:layout_marginEnd="18dp"
-                android:paddingStart="10dp"
-                android:paddingEnd="10dp"
-                android:paddingTop="4dp"
-                android:paddingBottom="4dp"
-                android:focusable="true"
-                android:clickable="true" />
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center_horizontal">
 
             <TextClock
                 android:id="@+id/clock"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:format12Hour="h:mm:ss a"
-                android:format24Hour="H:mm:ss"
+                android:fontFamily="sans-serif-light"
+                android:format12Hour="h:mm a"
+                android:format24Hour="h:mm a"
+                android:textAllCaps="true"
+                android:textColor="@color/text_primary"
+                android:textSize="32sp" />
+
+            <TextView
+                android:id="@+id/date"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:letterSpacing="0.18"
                 android:textColor="@color/text_dim"
-                android:textSize="15sp" />
+                android:textSize="10.5sp" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="horizontal"
+            android:gravity="center_vertical|end">
+
+            <ImageView
+                android:id="@+id/searchBtn"
+                android:layout_width="46dp"
+                android:layout_height="46dp"
+                android:padding="12dp"
+                android:src="@drawable/ic_search"
+                android:focusable="true"
+                android:clickable="true"
+                android:contentDescription="Search apps" />
+
+            <ImageView
+                android:id="@+id/wifiBtn"
+                android:layout_width="46dp"
+                android:layout_height="46dp"
+                android:layout_marginStart="2dp"
+                android:padding="13dp"
+                android:src="@drawable/ic_wifi"
+                android:focusable="true"
+                android:clickable="true"
+                android:contentDescription="Wi-Fi" />
 
             <ImageView
                 android:id="@+id/settingsBtn"
-                android:layout_width="30dp"
-                android:layout_height="30dp"
+                android:layout_width="46dp"
+                android:layout_height="46dp"
+                android:layout_marginStart="2dp"
+                android:padding="13dp"
                 android:src="@drawable/ic_settings"
-                android:padding="5dp"
-                android:layout_marginStart="14dp"
                 android:focusable="true"
                 android:clickable="true"
-                android:contentDescription="Settings" />
+                android:contentDescription="System settings" />
         </LinearLayout>
-
-        <!-- hero stats strip -->
-        <dev.hyper.launcher.HeroStrip
-            android:id="@+id/heroStrip"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="6dp" />
-
-        <!-- app grid + top scrim (tiles dissolve under the hero strip) -->
-        <FrameLayout
-            android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1"
-            android:layout_marginTop="18dp"
-            android:clipChildren="false">
-
-            <GridView
-                android:id="@+id/grid"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:numColumns="6"
-                android:horizontalSpacing="18dp"
-                android:verticalSpacing="18dp"
-                android:stretchMode="columnWidth"
-                android:scrollbars="none"
-                android:overScrollMode="never"
-                android:clipToPadding="false"
-                android:clipChildren="false"
-                android:listSelector="@android:color/transparent" />
-
-            <View
-                android:id="@+id/gridFadeTop"
-                android:layout_width="match_parent"
-                android:layout_height="56dp"
-                android:layout_gravity="top"
-                android:background="@drawable/fade_top"
-                android:alpha="0"
-                android:importantForAccessibility="no" />
-        </FrameLayout>
-
     </LinearLayout>
 
-    <!-- bottom scrim: tiles dissolve into the floor before the cat zone -->
     <View
         android:layout_width="match_parent"
-        android:layout_height="130dp"
-        android:layout_gravity="bottom"
-        android:background="@drawable/fade_bottom"
-        android:importantForAccessibility="no" />
+        android:layout_height="1dp"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="18dp"
+        android:background="@color/line" />
 
-    <!-- move-mode hint bar — above the scrim, not in flow -->
-    <TextView
-        android:id="@+id/hint"
+    <!-- full-width featured deck -->
+    <dev.hyper.launcher.FeatureStackView
+        android:id="@+id/heroStack"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:clipChildren="false"
+        android:clipToPadding="false" />
+
+    <!-- apps, full width below the deck -->
+    <LinearLayout
+        android:id="@+id/appsSection"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:gravity="center"
-        android:textColor="@color/text_dim"
-        android:textSize="13sp"
-        android:alpha="0"
-        android:layout_gravity="bottom|center_horizontal"
-        android:layout_marginBottom="70dp" />
+        android:orientation="vertical"
+        android:clipChildren="false"
+        android:clipToPadding="false">
 
-    <!-- ground strip with rocks & grass -->
-    <dev.hyper.launcher.GroundView
-        android:id="@+id/ground"
-        android:layout_width="match_parent"
-        android:layout_height="56dp"
-        android:layout_gravity="bottom" />
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginTop="14dp"
+            android:layout_marginBottom="10dp"
+            android:background="@color/line" />
 
-    <!-- the little blob companion -->
-    <dev.hyper.launcher.BuddyView
-        android:id="@+id/buddy"
-        android:layout_width="110dp"
-        android:layout_height="120dp"
-        android:layout_gravity="bottom|end"
-        android:layout_marginEnd="30dp" />
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
 
-    <!-- mouse hole + Jerry sketch layer -->
-    <dev.hyper.launcher.ChaseView
-        android:id="@+id/chase"
-        android:layout_width="match_parent"
-        android:layout_height="170dp"
-        android:layout_gravity="bottom"
-        android:importantForAccessibility="no" />
-</FrameLayout>
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:letterSpacing="0.18"
+                android:text="YOUR APPS"
+                android:textColor="@color/text_dim"
+                android:textSize="10sp" />
+
+            <TextView
+                android:id="@+id/manageAppsLink"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:letterSpacing="0.12"
+                android:text="VIEW ALL APPS  ›"
+                android:textColor="@color/text_dim"
+                android:textSize="10sp"
+                android:focusable="true"
+                android:clickable="true" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/pinnedGrid"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:orientation="horizontal"
+            android:clipChildren="false"
+            android:clipToPadding="false" />
+    </LinearLayout>
+</LinearLayout>

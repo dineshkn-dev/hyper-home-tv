@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:gravity="center_vertical">
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <ImageView
+            android:id="@+id/brandBtn"
+            android:layout_width="46dp"
+            android:layout_height="46dp"
+            android:padding="13dp"
+            android:src="@drawable/ic_bolt_logo"
+            android:focusable="true"
+            android:clickable="true"
+            android:contentDescription="Launcher settings"
+            android:importantForAccessibility="no" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="10dp"
+            android:letterSpacing="0.22"
+            android:text="HYPER OS"
+            android:textColor="@color/text_primary"
+            android:textSize="11sp" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:gravity="center_horizontal">
+
+        <TextClock
+            android:id="@+id/clock"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:fontFamily="sans-serif-light"
+            android:format12Hour="h:mm a"
+            android:format24Hour="h:mm a"
+            android:textAllCaps="true"
+            android:textColor="@color/text_primary"
+            android:textSize="32sp" />
+
+        <TextView
+            android:id="@+id/date"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:letterSpacing="0.18"
+            android:textColor="@color/text_dim"
+            android:textSize="10.5sp" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="horizontal"
+        android:gravity="center_vertical|end">
+
+        <ImageView
+            android:id="@+id/searchBtn"
+            android:layout_width="46dp"
+            android:layout_height="46dp"
+            android:padding="12dp"
+            android:src="@drawable/ic_search"
+            android:focusable="true"
+            android:clickable="true"
+            android:contentDescription="Search apps" />
+
+        <ImageView
+            android:id="@+id/wifiBtn"
+            android:layout_width="46dp"
+            android:layout_height="46dp"
+            android:layout_marginStart="2dp"
+            android:padding="13dp"
+            android:src="@drawable/ic_wifi"
+            android:focusable="true"
+            android:clickable="true"
+            android:contentDescription="Wi-Fi" />
+
+        <ImageView
+            android:id="@+id/settingsBtn"
+            android:layout_width="46dp"
+            android:layout_height="46dp"
+            android:layout_marginStart="2dp"
+            android:padding="13dp"
+            android:src="@drawable/ic_settings"
+            android:focusable="true"
+            android:clickable="true"
+            android:contentDescription="System settings" />
+    </LinearLayout>
+</LinearLayout>

@@ -15,17 +15,13 @@ import android.widget.TextView;
 
 /**
  * One app tile: a 16:9 rounded card filled with the app's banner art
- * (icon centered when no banner exists), a label, and a focus ring.
+ * (icon centered when no banner exists) and a label.
  */
 final class AppTile extends LinearLayout implements FocusedTile {
 
-    private static final int FOCUS_MS = 180;
     private static final float FOCUS_SCALE = 1.14f;
-    static boolean labelsAlways;   // settings: always show app names
 
     private final FrameLayout box;
-    private FrameLayout card;
-    private final View ring, sheen;
     private final TextView label;
 
     AppTile(Context ctx, AppEntry app, int w, int h) {
@@ -44,7 +40,7 @@ final class AppTile extends LinearLayout implements FocusedTile {
 
         FrameLayout card = new FrameLayout(ctx);
         GradientDrawable cardBg = new GradientDrawable();
-        cardBg.setColor(0xFF1A2030);          // flat card for icon tiles
+        cardBg.setColor(0xFF141414);          // flat card for icon tiles
         cardBg.setCornerRadius(corner);
         card.setBackground(cardBg);
         card.setClipToOutline(true);
@@ -54,7 +50,6 @@ final class AppTile extends LinearLayout implements FocusedTile {
                 o.setRoundRect(0, 0, v.getWidth(), v.getHeight(), corner);
             }
         });
-        this.card = card;
         box.addView(card, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT));
@@ -76,36 +71,12 @@ final class AppTile extends LinearLayout implements FocusedTile {
             card.addView(art, lp);
         }
 
-        // focus ring — invisible until focused
-        ring = new View(ctx);
-        GradientDrawable rg = new GradientDrawable();
-        rg.setColor(0x00FFFFFF);
-        rg.setCornerRadius(corner);
-        rg.setStroke((int) (2 * d), 0xE6FFFFFF);
-        ring.setBackground(rg);
-        ring.setAlpha(0f);
-        card.addView(ring, new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT));
-
-        // faint brighten over the art on focus
-        sheen = new View(ctx);
-        GradientDrawable sheenBg = new GradientDrawable();
-        sheenBg.setColor(0xFFFFFFFF);
-        sheenBg.setCornerRadius(corner);
-        sheen.setBackground(sheenBg);
-        sheen.setAlpha(0f);
-        card.addView(sheen, new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT));
-
         label = new TextView(ctx);
         label.setText(app.label);
         label.setSingleLine(true);
         label.setGravity(Gravity.CENTER);
         label.setTextSize(12f);
-        label.setTextColor(0xFFE8EDF8);
-        label.setAlpha(labelsAlways ? 1f : 0f);
+        label.setTextColor(0xFFEDEDED);
         label.setPadding(0, (int) (8 * d), 0, 0);
         addView(label, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -113,18 +84,11 @@ final class AppTile extends LinearLayout implements FocusedTile {
     }
 
     @Override public void setFocusedState(boolean focused) {
-        box.animate()
-                .scaleX(focused ? FOCUS_SCALE : 1f)
+        box.animate().scaleX(focused ? FOCUS_SCALE : 1f)
                 .scaleY(focused ? FOCUS_SCALE : 1f)
-                .translationZ(focused ? 24f : 0f)
-                .setDuration(FOCUS_MS)
+                .setDuration(180)
                 .setInterpolator(new DecelerateInterpolator(1.6f))
                 .start();
-        ring.animate().alpha(focused ? 1f : 0f).setDuration(FOCUS_MS).start();
-        sheen.animate().alpha(focused ? 0.10f : 0f).setDuration(FOCUS_MS).start();
-        card.animate().translationZ(focused ? 14f : 0f)
-                .setDuration(FOCUS_MS).start();
-        label.animate().alpha(focused || labelsAlways ? 1f : 0f)
-                .setDuration(FOCUS_MS).start();
+        label.setTextColor(focused ? 0xFFFFFFFF : 0xFFEDEDED);
     }
 }

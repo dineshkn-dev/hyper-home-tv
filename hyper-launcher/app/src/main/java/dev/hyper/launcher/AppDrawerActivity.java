@@ -22,7 +22,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-/** TV app drawer: rail filters, icon grid, hold-OK dropdown actions. */
+/** TV app drawer: icon grid with pin badges, hold-OK dropdown actions. */
 public final class AppDrawerActivity extends Activity {
 
     private static final String PREF = "hyper";
@@ -30,12 +30,15 @@ public final class AppDrawerActivity extends Activity {
     private static final int ACCENT = 0xFFC8FF3D;
     private static final int TXT = 0xFFEDEDED;
     private static final int DIM = 0xFF9A9A9A;
-    private static final int LINE = 0xFF242424;
+    private static final int COLUMNS = 6;
     private static final long HOLD_MS = 350;
 
     private TvGridView grid;
-    private LinearLayout railItems;
-    private TextView title, subtitle, installed;
+    private ImageView brand;
+    private LinearLayout manage;
+    private ImageView manageIcon;
+    private TextView manageLabel;
+    private TextView installed;
     private AppDrawerAdapter adapter;
     private SharedPreferences prefs;
     private float d;
@@ -43,31 +46,17 @@ public final class AppDrawerActivity extends Activity {
     private final List<AppEntry> allApps = new ArrayList<>();
     private final List<AppEntry> apps = new ArrayList<>();
     private final Set<String> pinned = new HashSet<>();
-    private final List<Rail> rails = new ArrayList<>();
 
     private int heldPos = -1;
     private long centerDownAt;
     private boolean longPressSeen;
+    private boolean holdMenuShown;
 
     private PopupWindow popup;
     private int tileSize;
     private boolean loading;
-    private boolean pinnedOnly;
     private String selectedPkg;
     private int selected = -1;
-
-    private static final class Rail {
-        final LinearLayout row;
-        final ImageView icon;
-        final TextView label;
-        final boolean pinnedFilter;
-        Rail(LinearLayout row, ImageView icon, TextView label, boolean pinnedFilter) {
-            this.row = row;
-            this.icon = icon;
-            this.label = label;
-            this.pinnedFilter = pinnedFilter;
-        }
-    }
 
     @Override protected void onCreate(Bundle b) {
         super.onCreate(b);
@@ -76,25 +65,41 @@ public final class AppDrawerActivity extends Activity {
 
         setContentView(R.layout.activity_app_drawer);
         grid = findViewById(R.id.drawerGrid);
-        railItems = findViewById(R.id.drawerRailItems);
-        title = findViewById(R.id.drawerTitle);
-        subtitle = findViewById(R.id.drawerSubtitle);
+        manage = findViewById(R.id.drawerManage);
+        manageIcon = findViewById(R.id.drawerManageIcon);
+        manageLabel = findViewById(R.id.drawerManageLabel);
         installed = findViewById(R.id.drawerInstalled);
 
-        int rootW = getResources().getDisplayMetrics().widthPixels
-                - (int) (128 * d);
-        int gridW = rootW - (int) (180 * d) - (int) (24 * d);
-        int gap = (int) (16 * d);
-        tileSize = Math.max((int) (96 * d), (gridW - gap * 5) / 6);
+        int screenW = getResources().getDisplayMetrics().widthPixels;
+        int gridW = screenW - (int) (80 * d) - (int) (24 * d);
+        int gap = (int) (20 * d);
+        tileSize = Math.max((int) (120 * d), (gridW - gap * (COLUMNS - 1)) / COLUMNS);
 
-        buildRails();
+        setupManage();
         setupGrid();
 
-        ImageView brand = findViewById(R.id.drawerBrand);
+        brand = findViewById(R.id.drawerBrand);
         brand.setOnClickListener(v ->
                 startActivity(new Intent(this, LauncherSettingsActivity.class)));
-        brand.setOnFocusChangeListener((v, has) ->
-                FocusGlow.apply(v, has, 1.12f));
+        brand.setOnFocusChangeListener((v, has) -> {
+            FocusGlow.apply(v, has, 1.12f);
+            if (has) clearGridFocus();
+        });
+        brand.setOnKeyListener((v, code, event) -> {
+            if (event.getAction() == KeyEvent.ACTION_DOWN
+                    && code == KeyEvent.KEYCODE_DPAD_DOWN) {
+                grid.requestFocus();
+                return true;
+            }
+            return false;
+        });
+    }
+
+    private void clearGridFocus() {
+        for (int i = 0; i < grid.getChildCount(); i++) {
+            View child = grid.getChildAt(i);
+            if (child instanceof FocusedTile) ((FocusedTile) child).setFocusedState(false);
+        }
     }
 
     @Override protected void onResume() {
@@ -119,137 +124,40 @@ public final class AppDrawerActivity extends Activity {
         super.onBackPressed();
     }
 
-    private void buildRails() {
-        addRail(R.drawable.ic_apps, "All Apps", false);
-        addRail(R.drawable.ic_home, "Pinned", true);
-        addManageRail();
-        styleRails();
-    }
-
-    private void addRail(int iconRes, String text, boolean pinnedFilter) {
-        LinearLayout row = new LinearLayout(this);
-        row.setOrientation(LinearLayout.HORIZONTAL);
-        row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setFocusable(true);
-        row.setClickable(true);
-        int ph = (int) (12 * d), pv = (int) (10 * d);
-        row.setPadding(ph, pv, ph, pv);
-
-        ImageView icon = new ImageView(this);
-        icon.setImageResource(iconRes);
-        icon.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
-        int is = (int) (18 * d);
-        row.addView(icon, new LinearLayout.LayoutParams(is, is));
-
-        TextView label = new TextView(this);
-        label.setText(text);
-        label.setTextSize(13f);
-        label.setLetterSpacing(0.04f);
-        LinearLayout.LayoutParams llp = new LinearLayout.LayoutParams(
-                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
-        llp.setMarginStart((int) (12 * d));
-        row.addView(label, llp);
-
-        row.setOnClickListener(v -> {
-            this.pinnedOnly = pinnedFilter;
-            styleRails();
-            rebuildGrid(false, selectedPkg);
-            grid.post(grid::requestFocus);
-        });
-        row.setOnFocusChangeListener((v, has) -> styleRails());
-        row.setOnKeyListener((v, code, event) -> {
-            if (event.getAction() == KeyEvent.ACTION_DOWN
-                    && code == KeyEvent.KEYCODE_DPAD_RIGHT) {
-                grid.requestFocus();
-                return true;
-            }
-            return false;
-        });
-
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT);
-        lp.bottomMargin = (int) (2 * d);
-        railItems.addView(row, lp);
-        rails.add(new Rail(row, icon, label, pinnedFilter));
-    }
-
-    private void addManageRail() {
-        LinearLayout row = new LinearLayout(this);
-        row.setOrientation(LinearLayout.HORIZONTAL);
-        row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setFocusable(true);
-        row.setClickable(true);
-        int ph = (int) (12 * d), pv = (int) (10 * d);
-        row.setPadding(ph, pv, ph, pv);
-
-        ImageView icon = new ImageView(this);
-        icon.setImageResource(R.drawable.ic_settings);
-        icon.setColorFilter(DIM);
-        icon.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
-        int is = (int) (18 * d);
-        row.addView(icon, new LinearLayout.LayoutParams(is, is));
-
-        TextView label = new TextView(this);
-        label.setText("Manage Apps");
-        label.setTextSize(13f);
-        label.setLetterSpacing(0.04f);
-        label.setTextColor(DIM);
-        LinearLayout.LayoutParams llp = new LinearLayout.LayoutParams(
-                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
-        llp.setMarginStart((int) (12 * d));
-        row.addView(label, llp);
-
-        row.setOnClickListener(v ->
+    private void setupManage() {
+        manage.setOnClickListener(v ->
                 startActivity(new Intent(this, ManageAppsActivity.class)));
-        row.setOnFocusChangeListener((v, has) -> {
-            GradientDrawable bg = new GradientDrawable();
-            bg.setCornerRadius(10 * d);
-            bg.setColor(has ? 0x22FFFFFF : 0x00000000);
-            if (has) bg.setStroke((int) (1 * d), ACCENT);
-            row.setBackground(bg);
-            label.setTextColor(has ? ACCENT : DIM);
-            icon.setColorFilter(has ? ACCENT : DIM);
-            row.animate().scaleX(has ? 1.02f : 1f)
-                    .scaleY(has ? 1.02f : 1f)
-                    .setDuration(150).start();
+        manage.setOnFocusChangeListener((v, has) -> {
+            styleManage(has);
+            if (has) clearGridFocus();
         });
-        row.setOnKeyListener((v, code, event) -> {
+        manage.setOnKeyListener((v, code, event) -> {
             if (event.getAction() == KeyEvent.ACTION_DOWN
-                    && code == KeyEvent.KEYCODE_DPAD_RIGHT) {
+                    && code == KeyEvent.KEYCODE_DPAD_DOWN) {
                 grid.requestFocus();
                 return true;
             }
             return false;
         });
-
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT);
-        lp.topMargin = (int) (10 * d);
-        railItems.addView(row, lp);
+        styleManage(false);
     }
 
-    private void styleRails() {
-        for (Rail r : rails) {
-            boolean isSelected = r.pinnedFilter == pinnedOnly;
-            boolean focused = r.row.isFocused();
-            GradientDrawable bg = new GradientDrawable();
-            bg.setCornerRadius(10 * d);
-            bg.setColor(focused ? 0x22FFFFFF
-                    : isSelected ? 0x14FFFFFF : 0x00000000);
-            if (isSelected || focused)
-                bg.setStroke((int) (1 * d), focused ? ACCENT : 0x33FFFFFF);
-            r.row.setBackground(bg);
-            r.label.setTextColor(isSelected ? ACCENT : DIM);
-            r.icon.setColorFilter(isSelected ? ACCENT : DIM);
-            r.row.animate().scaleX(focused ? 1.02f : 1f)
-                    .scaleY(focused ? 1.02f : 1f)
-                    .setDuration(150).start();
-        }
+    private void styleManage(boolean focused) {
+        GradientDrawable bg = new GradientDrawable();
+        bg.setCornerRadius(10 * d);
+        bg.setColor(focused ? 0x22FFFFFF : 0x00000000);
+        if (focused) bg.setStroke((int) (1 * d), ACCENT);
+        manage.setBackground(bg);
+        manageLabel.setTextColor(focused ? ACCENT : DIM);
+        manageIcon.setColorFilter(focused ? ACCENT : DIM);
     }
 
     private void setupGrid() {
+        grid.setOnFocusChangeListener((v, has) -> {
+            if (!has || selected < 0) return;
+            View tile = grid.getChildAt(selected - grid.getFirstVisiblePosition());
+            if (tile instanceof FocusedTile) ((FocusedTile) tile).setFocusedState(true);
+        });
         grid.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
             private int last = -1;
             @Override public void onItemSelected(android.widget.AdapterView<?> parent,
@@ -298,42 +206,44 @@ public final class AppDrawerActivity extends Activity {
                         longPressSeen = true;
                     if (event.getRepeatCount() == 0) {
                         longPressSeen = false;
+                        holdMenuShown = false;
                         centerDownAt = SystemClock.uptimeMillis();
                         heldPos = pos;
+                    } else if (!holdMenuShown && heldPos >= 0 && heldPos < apps.size()
+                            && (longPressSeen
+                                || SystemClock.uptimeMillis() - centerDownAt >= HOLD_MS)) {
+                        holdMenuShown = true;
+                        showAppMenu(heldPos);
                     }
                     return true;
                 }
-                if (code == KeyEvent.KEYCODE_DPAD_LEFT && pos % 6 == 0) {
-                    focusCurrentRail();
+                if (code == KeyEvent.KEYCODE_DPAD_UP && pos >= 0 && pos < COLUMNS) {
+                    manage.requestFocus();
+                    return true;
+                }
+                if (code == KeyEvent.KEYCODE_DPAD_LEFT && pos >= 0 && pos % COLUMNS == 0) {
+                    brand.requestFocus();
                     return true;
                 }
                 if (code == KeyEvent.KEYCODE_DPAD_RIGHT
-                        && (pos % 6 == 5 || pos == apps.size() - 1)) {
+                        && (pos % COLUMNS == COLUMNS - 1 || pos == apps.size() - 1)) {
                     return true;
                 }
             } else if (event.getAction() == KeyEvent.ACTION_UP && isEnter(code)) {
                 long held = centerDownAt == 0 ? 0
                         : SystemClock.uptimeMillis() - centerDownAt;
-                if (heldPos >= 0 && heldPos < apps.size()) {
+                if (!holdMenuShown && heldPos >= 0 && heldPos < apps.size()) {
                     if (longPressSeen || held >= HOLD_MS) showAppMenu(heldPos);
                     else launch(apps.get(heldPos));
                 }
                 heldPos = -1;
                 centerDownAt = 0;
                 longPressSeen = false;
+                holdMenuShown = false;
                 return true;
             }
             return false;
         });
-    }
-
-    private void focusCurrentRail() {
-        for (Rail r : rails) {
-            if (r.pinnedFilter == pinnedOnly) {
-                r.row.requestFocus();
-                return;
-            }
-        }
     }
 
     private static boolean isEnter(int code) {
@@ -346,7 +256,6 @@ public final class AppDrawerActivity extends Activity {
         pinned.clear();
         pinned.addAll(PinnedApps.load(prefs));
         if (adapter != null) adapter.notifyDataSetChanged();
-        styleRails();
         updateCounts();
     }
 
@@ -378,8 +287,7 @@ public final class AppDrawerActivity extends Activity {
         if (!forceSelect) selectedPkg = selected >= 0 && selected < apps.size()
                 ? apps.get(selected).pkg : selectedPkg;
         apps.clear();
-        for (AppEntry app : allApps)
-            if (!pinnedOnly || pinned.contains(app.pkg)) apps.add(app);
+        apps.addAll(allApps);
 
         adapter = new AppDrawerAdapter(this, apps, pinned, tileSize);
         grid.setAdapter(adapter);
@@ -406,9 +314,6 @@ public final class AppDrawerActivity extends Activity {
     }
 
     private void updateCounts() {
-        title.setText(pinnedOnly ? "Pinned" : "All Apps");
-        subtitle.setText(apps.size() + (apps.size() == 1 ? " app" : " apps")
-                + "  ·  " + pinned.size() + " pinned");
         installed.setText(allApps.size() + " INSTALLED");
     }
 
@@ -437,8 +342,10 @@ public final class AppDrawerActivity extends Activity {
         addMenuRow(menu, R.drawable.ic_home,
                 isPinned ? "Remove from Home" : "Pin to Home",
                 () -> togglePin(app));
-        addMenuRow(menu, R.drawable.ic_settings, "Manage Apps",
-                () -> startActivity(new Intent(this, ManageAppsActivity.class)));
+        addMenuRow(menu, R.drawable.ic_info, "App Info",
+                () -> openAppInfo(app));
+        addMenuRow(menu, R.drawable.ic_delete, "Uninstall",
+                () -> uninstall(app));
 
         int width = (int) (230 * d);
         PopupWindow p = new PopupWindow(menu, width,
@@ -549,5 +456,17 @@ public final class AppDrawerActivity extends Activity {
 
     private void launch(AppEntry app) {
         try { startActivity(app.intent); } catch (Exception ignored) {}
+    }
+
+    private void openAppInfo(AppEntry app) {
+        Intent intent = new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                android.net.Uri.fromParts("package", app.pkg, null));
+        try { startActivity(intent); } catch (Exception ignored) {}
+    }
+
+    private void uninstall(AppEntry app) {
+        Intent intent = new Intent(Intent.ACTION_DELETE,
+                android.net.Uri.fromParts("package", app.pkg, null));
+        try { startActivity(intent); } catch (Exception ignored) {}
     }
 }

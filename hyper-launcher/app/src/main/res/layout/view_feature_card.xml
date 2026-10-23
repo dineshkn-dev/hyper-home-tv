@@ -86,25 +86,22 @@
                 android:layout_height="match_parent"
                 android:background="@drawable/bg_hero_art_scrim"
                 android:importantForAccessibility="no" />
+
+            <FrameLayout
+                android:id="@+id/featureProgressTrack"
+                android:layout_width="match_parent"
+                android:layout_height="3dp"
+                android:layout_gravity="bottom"
+                android:visibility="gone"
+                android:background="@drawable/bg_progress_track">
+
+                <View
+                    android:id="@+id/featureProgressFill"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:background="@drawable/bg_progress_fill"
+                    android:scaleX="0" />
+            </FrameLayout>
         </FrameLayout>
     </LinearLayout>
-
-    <FrameLayout
-        android:id="@+id/featureProgressTrack"
-        android:layout_width="match_parent"
-        android:layout_height="3dp"
-        android:layout_gravity="bottom"
-        android:layout_marginStart="16dp"
-        android:layout_marginEnd="16dp"
-        android:layout_marginBottom="9dp"
-        android:visibility="gone"
-        android:background="@drawable/bg_progress_track">
-
-        <View
-            android:id="@+id/featureProgressFill"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:background="@drawable/bg_progress_fill"
-            android:scaleX="0" />
-    </FrameLayout>
 </FrameLayout>

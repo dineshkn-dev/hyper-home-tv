@@ -127,8 +127,7 @@ public final class LauncherSettingsActivity extends Activity {
 
     private void setupTopBar() {
         setupAction(findViewById(R.id.searchBtn), () ->
-                startActivity(new Intent(this, ManageAppsActivity.class)
-                        .putExtra(ManageAppsActivity.EXTRA_SEARCH, true)));
+                startActivity(new Intent(this, HomeActivity.class)));
         setupAction(findViewById(R.id.wifiBtn), () -> {
             selectRail(rails.get(0));
             focusPane();
@@ -616,16 +615,12 @@ public final class LauncherSettingsActivity extends Activity {
 
     private void appsPanel() {
         String count = installedAppCount() + " apps installed";
-        actionRow(R.drawable.ic_apps, "Manage apps", count,
-                DIM, () -> startActivity(new Intent(this, ManageAppsActivity.class)));
         actionRow(R.drawable.ic_settings, "Default apps", "Home, browser, and other defaults",
                 DIM, () -> safeStart(new Intent(
                         Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS)));
         actionRow(R.drawable.ic_shield, "App permissions", "Review app permissions",
                 DIM, () -> safeStart(new Intent(
                         Settings.ACTION_MANAGE_APPLICATIONS_SETTINGS)));
-        actionRow(R.drawable.ic_delete, "Uninstall apps", "Free up space",
-                DIM, () -> startActivity(new Intent(this, ManageAppsActivity.class)));
     }
 
     private void privacyPanel() {

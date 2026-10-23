@@ -59,6 +59,7 @@ public final class HomeActivity extends Activity implements HomeFocusRouter.Host
     private View barFocus;   // top-bar element that last held focus
     private String lastPkg;
     private int restoreFocusId = View.NO_ID;
+    private boolean barFocusRestored;
     private HomeFocusRouter focusRouter;
     private HomeDialogs dialogs;
     private ConnectivityManager cm;
@@ -108,8 +109,10 @@ public final class HomeActivity extends Activity implements HomeFocusRouter.Host
                 restoreFocusId = R.id.brandBtn;
                 startActivity(new Intent(this, LauncherSettingsActivity.class));
             });
-            brandBtn.setOnFocusChangeListener((v, has) ->
-                    FocusGlow.apply(v, has, 1.12f));
+            brandBtn.setOnFocusChangeListener((v, has) -> {
+                FocusGlow.apply(v, has, 1.12f);
+                if (has) barFocus = null;
+            });
         }
 
         styleLink(manageAppsLink);
@@ -172,6 +175,7 @@ public final class HomeActivity extends Activity implements HomeFocusRouter.Host
 
     @Override protected void onResume() {
         super.onResume();
+        barFocusRestored = false;
         updateDate();
         // Settings and Manage Apps can change pins and hidden apps.
         pinnedPkgs = PinnedApps.load(prefs());
@@ -233,6 +237,9 @@ public final class HomeActivity extends Activity implements HomeFocusRouter.Host
 
     @Override protected void onPause() {
         super.onPause();
+        View focused = getCurrentFocus();
+        if (focused != null && focused.getId() != View.NO_ID)
+            restoreFocusId = focused.getId();
         if (dialogs != null && dialogs.isOpen()) dialogs.close();
         try { unregisterReceiver(pkgReceiver); } catch (IllegalArgumentException ignored) {}
         if (cm != null) cm.unregisterNetworkCallback(netCb);
@@ -512,11 +519,17 @@ public final class HomeActivity extends Activity implements HomeFocusRouter.Host
     }
 
     private void focusHome() {
+        if (barFocusRestored && getCurrentFocus() != null) return;
         if (restoreFocusId != View.NO_ID) {
             View restore = findViewById(restoreFocusId);
-            if (focusView(restore)) restoreFocusId = View.NO_ID;
+            if (focusView(restore)) {
+                restoreFocusId = View.NO_ID;
+                barFocusRestored = true;
+                barFocus = topActionIndex(restore) >= 0 ? restore : null;
+                return;
+            }
+            return;
         }
-        if (restoreFocusId != View.NO_ID) return;
         if (barFocus != null && barFocus.isShown()) {
             barFocus.requestFocus();
             return;
@@ -662,8 +675,13 @@ public final class HomeActivity extends Activity implements HomeFocusRouter.Host
         refreshPinnedApps();
         pinnedGrid.postDelayed(() -> {
             if (dialogs != null && dialogs.isOpen()) return;
+            if (restoreFocusId != View.NO_ID) {
+                focusHome();
+                return;
+            }
             View current = getCurrentFocus();
-            if (!interactedSinceLoad && (current == null || current == brandBtn))
+            if (!interactedSinceLoad && !barFocusRestored
+                    && (current == null || current == brandBtn))
                 focusHome();
         }, 60);
     }

@@ -63,10 +63,5 @@
         <activity
             android:name=".AppDrawerActivity"
             android:exported="false" />
-
-        <activity
-            android:name=".ManageAppsActivity"
-            android:exported="false"
-            android:windowSoftInputMode="adjustResize" />
     </application>
 </manifest>

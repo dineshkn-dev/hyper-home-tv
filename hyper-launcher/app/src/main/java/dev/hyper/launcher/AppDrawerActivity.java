@@ -35,9 +35,6 @@ public final class AppDrawerActivity extends Activity {
 
     private TvGridView grid;
     private ImageView brand;
-    private LinearLayout manage;
-    private ImageView manageIcon;
-    private TextView manageLabel;
     private TextView installed;
     private AppDrawerAdapter adapter;
     private SharedPreferences prefs;
@@ -53,6 +50,7 @@ public final class AppDrawerActivity extends Activity {
     private boolean holdMenuShown;
 
     private PopupWindow popup;
+    private int pendingFocusId = View.NO_ID;
     private int tileSize;
     private boolean loading;
     private String selectedPkg;
@@ -65,9 +63,6 @@ public final class AppDrawerActivity extends Activity {
 
         setContentView(R.layout.activity_app_drawer);
         grid = findViewById(R.id.drawerGrid);
-        manage = findViewById(R.id.drawerManage);
-        manageIcon = findViewById(R.id.drawerManageIcon);
-        manageLabel = findViewById(R.id.drawerManageLabel);
         installed = findViewById(R.id.drawerInstalled);
 
         int screenW = getResources().getDisplayMetrics().widthPixels;
@@ -75,7 +70,6 @@ public final class AppDrawerActivity extends Activity {
         int gap = (int) (20 * d);
         tileSize = Math.max((int) (120 * d), (gridW - gap * (COLUMNS - 1)) / COLUMNS);
 
-        setupManage();
         setupGrid();
 
         brand = findViewById(R.id.drawerBrand);
@@ -110,6 +104,9 @@ public final class AppDrawerActivity extends Activity {
 
     @Override protected void onPause() {
         super.onPause();
+        View focused = getCurrentFocus();
+        if (focused != null && focused.getId() != View.NO_ID)
+            pendingFocusId = focused.getId();
         heldPos = -1;
         centerDownAt = 0;
         longPressSeen = false;
@@ -122,34 +119,6 @@ public final class AppDrawerActivity extends Activity {
             return;
         }
         super.onBackPressed();
-    }
-
-    private void setupManage() {
-        manage.setOnClickListener(v ->
-                startActivity(new Intent(this, ManageAppsActivity.class)));
-        manage.setOnFocusChangeListener((v, has) -> {
-            styleManage(has);
-            if (has) clearGridFocus();
-        });
-        manage.setOnKeyListener((v, code, event) -> {
-            if (event.getAction() == KeyEvent.ACTION_DOWN
-                    && code == KeyEvent.KEYCODE_DPAD_DOWN) {
-                grid.requestFocus();
-                return true;
-            }
-            return false;
-        });
-        styleManage(false);
-    }
-
-    private void styleManage(boolean focused) {
-        GradientDrawable bg = new GradientDrawable();
-        bg.setCornerRadius(10 * d);
-        bg.setColor(focused ? 0x22FFFFFF : 0x00000000);
-        if (focused) bg.setStroke((int) (1 * d), ACCENT);
-        manage.setBackground(bg);
-        manageLabel.setTextColor(focused ? ACCENT : DIM);
-        manageIcon.setColorFilter(focused ? ACCENT : DIM);
     }
 
     private void setupGrid() {
@@ -215,10 +184,6 @@ public final class AppDrawerActivity extends Activity {
                         holdMenuShown = true;
                         showAppMenu(heldPos);
                     }
-                    return true;
-                }
-                if (code == KeyEvent.KEYCODE_DPAD_UP && pos >= 0 && pos < COLUMNS) {
-                    manage.requestFocus();
                     return true;
                 }
                 if (code == KeyEvent.KEYCODE_DPAD_LEFT && pos >= 0 && pos % COLUMNS == 0) {
@@ -302,8 +267,14 @@ public final class AppDrawerActivity extends Activity {
         final int target = position;
         grid.postDelayed(() -> {
             if (!apps.isEmpty()) grid.setSelection(target);
-            grid.requestFocus();
-            if (selected < 0 && !apps.isEmpty()) {
+            View restore = pendingFocusId == View.NO_ID
+                    ? null : findViewById(pendingFocusId);
+            pendingFocusId = View.NO_ID;
+            if (restore != null && restore != grid && restore.isShown())
+                restore.requestFocus();
+            else
+                grid.requestFocus();
+            if (grid.hasFocus() && selected < 0 && !apps.isEmpty()) {
                 selected = target;
                 selectedPkg = apps.get(target).pkg;
                 View first = grid.getChildAt(target - grid.getFirstVisiblePosition());
